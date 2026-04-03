@@ -1,0 +1,79 @@
+[runtime]
+# Runtime file outputs
+log_path = logs/runtime.log
+state_path = state/runtime_state.json
+
+[symbol]
+# Trading symbol
+symbol = XAUUSD
+
+[timeframe]
+# Chart timeframe in minutes
+timeframe = 5
+
+[magic]
+# Magic number for order identification
+magic = 20260313
+
+[logging]
+# Log level: 0=off, 1=minimal, 2=verbose, 3=debug
+log_level = 1
+
+[daily_limits]
+# Maximum number of trades per day
+max_trades_per_day = 30
+# Daily profit stop in USD
+daily_profit_stop_usd = 50.0
+
+[trading]
+# Fixed lot size for all trades
+fixed_lots = 0.01
+# Slippage in points
+slippage = 30
+# Maximum retries for order operations
+max_retries = 6
+
+[indicators]
+# EMA fast period
+ema_fast_period = 9
+# EMA slow period
+ema_slow_period = 21
+
+[volatility_filter]
+# Minimum ATR points for non-low volatility
+low_vol_atr_points_floor = 300.0
+# Minimum ATR/spread ratio for non-low volatility
+low_vol_atr_spread_ratio_floor = 3.0
+
+[strategy_parameters]
+# TrendContinuation parameters
+trend_continuation_atr_multiplier_breakout = 0.20
+trend_continuation_atr_multiplier_body = 0.35
+trend_continuation_initial_sl_atr = 1.2
+trend_continuation_initial_tp_atr = 2.0
+
+# Pullback parameters
+pullback_ema_tolerance_atr = 0.15
+pullback_initial_sl_atr = 1.2
+pullback_initial_tp_atr = 2.0
+
+# ExpansionFollow parameters
+expansion_follow_body_atr_min = 4.0
+expansion_follow_body_median_ratio_min = 2.20
+expansion_follow_body_prev3_max_ratio_min = 1.80
+expansion_follow_volume_ma_ratio_min = 1.90
+expansion_follow_body_range_ratio_min = 0.65
+expansion_follow_breakout_atr_buffer = 0.10
+expansion_follow_stop_loss_range_ratio = 0.6
+expansion_follow_initial_tp_atr = 2.0
+
+[protection]
+# Stage 1: Break-even protection at 1.0 ATR profit
+protection_stage1_atr_multiplier = 1.0
+protection_stage1_sl_buffer_atr = 0.1
+protection_stage1_tp_atr = 2.5
+
+# Stage 2: Trailing protection at 1.5 ATR profit
+protection_stage2_atr_multiplier = 1.5
+protection_stage2_sl_distance_atr = 0.9
+protection_stage2_tp_distance_atr = 0.8
