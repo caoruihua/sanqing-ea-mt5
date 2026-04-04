@@ -1,3 +1,3 @@
 """
-Configuration loading and validation.
+配置加载与参数校验。
 """

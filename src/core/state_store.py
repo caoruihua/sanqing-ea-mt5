@@ -1,4 +1,15 @@
-"""JSON runtime state persistence with atomic writes."""
+"""
+该文件负责运行时状态的 JSON 持久化，使用原子写入保证数据完整性。
+
+主要职责：
+1. 将 RuntimeState 序列化为 JSON 并写入磁盘；
+2. 使用临时文件+重命名的方式实现原子写入；
+3. 支持加载持久化状态，处理文件不存在或损坏的情况。
+
+说明：
+- 状态文件路径由配置指定（默认 state/runtime_state.json）；
+- 原子写入确保即使在写入过程中程序崩溃，也不会损坏已有状态文件。
+"""
 
 import json
 import os
@@ -8,19 +19,19 @@ from src.domain.models import RuntimeState
 
 
 class StateStoreError(RuntimeError):
-    """Base state store error."""
+    """状态存储基础错误。"""
 
 
 class StateStoreNotFoundError(StateStoreError):
-    """Raised when state file does not exist yet."""
+    """状态文件不存在时抛出。"""
 
 
 class StateStoreCorruptedError(StateStoreError):
-    """Raised when persisted state file is unreadable or invalid."""
+    """状态文件损坏或无法解析时抛出。"""
 
 
 class StateStore:
-    """Persist RuntimeState to disk with temp-file + replace semantics."""
+    """使用临时文件加替换语义将 `RuntimeState` 持久化到磁盘。"""
 
     def __init__(self, file_path: str) -> None:
         self.file_path = Path(file_path)
@@ -40,10 +51,10 @@ class StateStore:
         try:
             text = self.file_path.read_text(encoding="utf-8")
             data = json.loads(text)
-        except Exception as exc:  # noqa: BLE001 - normalize into domain-specific error
+        except Exception as exc:  # noqa: BLE001 - 统一转换为领域层错误
             raise StateStoreCorruptedError(f"Corrupted state file: {self.file_path}") from exc
 
         try:
             return RuntimeState.from_dict(data)
-        except Exception as exc:  # noqa: BLE001 - normalize into domain-specific error
+        except Exception as exc:  # noqa: BLE001 - 统一转换为领域层错误
             raise StateStoreCorruptedError(f"Invalid state payload: {self.file_path}") from exc

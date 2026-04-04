@@ -1,4 +1,4 @@
-"""Two-stage ATR protection engine."""
+"""两阶段 ATR 仓位保护引擎。"""
 
 from dataclasses import dataclass
 from typing import Optional
@@ -16,15 +16,15 @@ from src.domain.models import MarketSnapshot, OrderType, ProtectionStage, Runtim
 
 @dataclass
 class ProtectionDecision:
-    """Output decision for position protection update."""
+    """仓位保护更新的决策结果。"""
 
-    action: str  # hold | modify
+    action: str  # 保持 | 修改
     new_sl: Optional[float] = None
     new_tp: Optional[float] = None
 
 
 class ProtectionEngine:
-    """Advance protection from NONE -> STAGE1 -> STAGE2 without rollback."""
+    """将保护状态从 NONE 推进到 STAGE1、再到 STAGE2，且不允许回退。"""
 
     def evaluate(
         self,

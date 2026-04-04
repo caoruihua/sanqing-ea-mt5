@@ -24,7 +24,7 @@ from src.strategies.base import BaseStrategy
 
 
 class TrendContinuationStrategy(BaseStrategy):
-    """Follow trend when closed bar confirms breakout continuation."""
+    """当收盘 K 线确认突破延续时顺势跟进。"""
 
     def __init__(self, fixed_lots: float) -> None:
         self.fixed_lots = fixed_lots

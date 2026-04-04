@@ -196,7 +196,7 @@ def main() -> int:
         except InsufficientBarsError as exc:
             logger.info("snapshot_skipped", reason="INSUFFICIENT_BARS", detail=str(exc))
             _console_status(f"跳过本轮: K 线数量不足，原因={exc}")
-        except Exception as exc:  # noqa: BLE001 - runtime loop should log and continue
+        except Exception as exc:  # noqa: BLE001 - 运行循环应记录日志并继续执行
             logger.info("runtime_error", detail=str(exc))
             _console_status(f"运行时异常: {exc}")
 

@@ -28,7 +28,7 @@ from src.strategies.base import BaseStrategy
 
 
 class ExpansionFollowStrategy(BaseStrategy):
-    """Enter after explosive closed bar confirms clean breakout direction."""
+    """在强扩张收盘 K 线确认干净突破方向后入场。"""
 
     def __init__(self, fixed_lots: float) -> None:
         self.fixed_lots = fixed_lots

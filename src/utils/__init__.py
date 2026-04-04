@@ -1,3 +1,3 @@
 """
-Utility functions (logging, rounding, file operations, etc.).
+通用工具函数集合（日志、舍入、文件操作等）。
 """

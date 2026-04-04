@@ -21,15 +21,15 @@ from src.domain.models import RuntimeState, TradeIntent
 
 
 class DuplicateActionError(ValueError):
-    """Raised when the same action id is submitted more than once."""
+    """同一个 action_id 被重复提交时抛出。"""
 
 
 class RetryExhaustedError(RuntimeError):
-    """Raised when retryable order attempts are exhausted."""
+    """可重试的下单尝试耗尽时抛出。"""
 
 
 class ExecutionEngine:
-    """Submit TradeIntent via broker with retry + idempotency controls."""
+    """通过 Broker 提交 `TradeIntent`，并提供重试与幂等控制。"""
 
     def __init__(self, broker: BrokerAdapter, max_retries: int = DEFAULT_MAX_RETRIES) -> None:
         self.broker = broker

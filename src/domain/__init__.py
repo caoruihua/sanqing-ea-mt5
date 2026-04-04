@@ -1,3 +1,3 @@
 """
-Domain models, constants, and business rules.
+领域模型、常量与业务规则定义。
 """

@@ -1,9 +1,14 @@
 """
-Average True Range (ATR) indicator implementation.
+该文件实现 ATR（平均真实波幅）指标计算。
 
-This module provides pure Python implementations of ATR calculation
-using only the standard library, following the requirements from
-`mt5-rewrite-requirements.md`.
+主要职责：
+1. 提供纯 Python 实现的 ATR 计算；
+2. 仅使用标准库，无外部依赖；
+3. 基于 mt5-rewrite-requirements.md 需求文档设计。
+
+说明：
+- ATR 用于衡量市场波动率；
+- 计算结果用于止损、止盈、仓位保护等风控逻辑。
 """
 
 from typing import List, Optional
@@ -15,7 +20,7 @@ def calculate_true_range(
     prev_close: Optional[float] = None,
 ) -> float:
     """
-    Calculate True Range for a single bar.
+    计算单根 K 线的 True Range。
 
     True Range = max(
         high - low,
@@ -23,13 +28,13 @@ def calculate_true_range(
         abs(low - prev_close)
     )
 
-    Args:
-        high: High price of current bar
-        low: Low price of current bar
-        prev_close: Close price of previous bar (optional)
+    参数：
+        high: 当前 K 线最高价
+        low: 当前 K 线最低价
+        prev_close: 前一根 K 线收盘价（可选）
 
-    Returns:
-        True Range value
+    返回：
+        True Range 数值
     """
     hl_range = high - low
 
@@ -49,20 +54,20 @@ def calculate_atr(
     period: int = 14,
 ) -> float:
     """
-    Calculate Average True Range (ATR) for the given price series.
+    计算给定价格序列的平均真实波幅 ATR。
 
-    Args:
-        highs: List of high prices
-        lows: List of low prices
-        closes: List of close prices
-        period: ATR period (default 14 as per requirements)
+    参数：
+        highs: 最高价序列
+        lows: 最低价序列
+        closes: 收盘价序列
+        period: ATR 周期（默认 14，符合需求）
 
-    Returns:
-        ATR value for the last bar in the series
+    返回：
+        序列最后一根 K 线对应的 ATR 数值
 
-    Raises:
-        ValueError: If period is not positive or insufficient data
-        ValueError: If input lists have different lengths
+    异常：
+        ValueError: 当周期非法或数据不足时抛出
+        ValueError: 当输入列表长度不一致时抛出
     """
     if period <= 0:
         raise ValueError(f"ATR period must be positive, got {period}")
@@ -73,15 +78,15 @@ def calculate_atr(
             f"highs={len(highs)}, lows={len(lows)}, closes={len(closes)}"
         )
 
-    # Need at least period+1 bars to calculate ATR(period)
-    # because first True Range needs previous close
+    # 计算 ATR(period) 至少需要 `period + 1` 根 K 线，
+    # 因为第一根 True Range 还需要前一根收盘价。
     if len(highs) < period + 1:
         raise ValueError(
             f"Insufficient data for ATR({period}): "
             f"need at least {period + 1} bars, got {len(highs)}"
         )
 
-    # Calculate True Range for each bar (except first)
+    # 计算每一根 K 线的 True Range（首根除外）。
     true_ranges: List[float] = []
     for i in range(1, len(highs)):
         tr = calculate_true_range(
@@ -91,11 +96,11 @@ def calculate_atr(
         )
         true_ranges.append(tr)
 
-    # Calculate ATR as EMA of True Ranges
-    # First ATR is simple average of first period True Ranges
+    # 将 True Range 序列按 EMA 方式平滑得到 ATR。
+    # 第一笔 ATR 采用前 `period` 个 True Range 的简单平均值。
     initial_atr = sum(true_ranges[:period]) / period
 
-    # Calculate EMA for remaining True Ranges
+    # 对剩余 True Range 继续执行 EMA 递推。
     alpha = 2.0 / (period + 1.0)
     atr = initial_atr
 
@@ -112,20 +117,20 @@ def calculate_atr_series(
     period: int = 14,
 ) -> List[Optional[float]]:
     """
-    Calculate ATR for each bar in the series.
+    计算整个序列每一根 K 线对应的 ATR。
 
-    Args:
-        highs: List of high prices
-        lows: List of low prices
-        closes: List of close prices
-        period: ATR period (default 14)
+    参数：
+        highs: 最高价序列
+        lows: 最低价序列
+        closes: 收盘价序列
+        period: ATR 周期（默认 14）
 
-    Returns:
-        List of ATR values. First period values will be None, then ATR values.
+    返回：
+        ATR 数值列表。前 `period` 个位置为 `None`，之后为有效 ATR。
 
-    Raises:
-        ValueError: If period is not positive or insufficient data
-        ValueError: If input lists have different lengths
+    异常：
+        ValueError: 当周期非法或数据不足时抛出
+        ValueError: 当输入列表长度不一致时抛出
     """
     if period <= 0:
         raise ValueError(f"ATR period must be positive, got {period}")
@@ -138,13 +143,13 @@ def calculate_atr_series(
 
     n_bars = len(highs)
 
-    # Need at least period+1 bars to calculate ATR(period)
+    # 计算 ATR(period) 至少需要 `period + 1` 根 K 线。
     if n_bars < period + 1:
         raise ValueError(
             f"Insufficient data for ATR({period}): need at least {period + 1} bars, got {n_bars}"
         )
 
-    # Calculate True Range for each bar (except first)
+    # 计算每一根 K 线的 True Range（首根除外）。
     true_ranges: List[float] = []
     for i in range(1, n_bars):
         tr = calculate_true_range(
@@ -154,14 +159,14 @@ def calculate_atr_series(
         )
         true_ranges.append(tr)
 
-    # Initialize result list
-    atr_values: List[Optional[float]] = [None] * (period)  # First period bars have no ATR
+    # 初始化结果列表。
+    atr_values: List[Optional[float]] = [None] * (period)  # 前 `period` 根 K 线没有 ATR
 
-    # First ATR is simple average of first period True Ranges
+    # 第一笔 ATR 采用前 `period` 个 True Range 的简单平均值。
     initial_atr = sum(true_ranges[:period]) / period
     atr_values.append(initial_atr)
 
-    # Calculate EMA for remaining True Ranges
+    # 对剩余 True Range 继续执行 EMA 递推。
     alpha = 2.0 / (period + 1.0)
     atr = initial_atr
 

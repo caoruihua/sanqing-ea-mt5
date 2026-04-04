@@ -1,8 +1,14 @@
 """
-Parameter validation for the trading system.
+该文件负责交易系统参数的校验。
 
-This module validates configuration parameters according to the
-requirements in `mt5-rewrite-requirements.md` section 5.
+主要职责：
+1. 根据 mt5-rewrite-requirements.md 第 5 节的要求校验配置参数；
+2. 校验 EMA 周期顺序（快线 < 慢线）；
+3. 校验手数合理性。
+
+说明：
+- 在系统启动时执行参数校验；
+- 校验失败会抛出 ValidationError。
 """
 
 import math
@@ -10,16 +16,16 @@ from typing import Any, Dict
 
 
 class ValidationError(ValueError):
-    """Raised when validation fails."""
+    """参数校验失败时抛出。"""
 
     pass
 
 
 def validate_ema_ordering(ema_fast_period: int, ema_slow_period: int) -> None:
     """
-    Validate EMA period ordering.
+    校验 EMA 周期顺序。
 
-    Requirements: EMAFastPeriod > 0, EMASlowPeriod > 0, EMAFastPeriod < EMASlowPeriod
+    要求：EMAFastPeriod > 0、EMASlowPeriod > 0，且 EMAFastPeriod < EMASlowPeriod。
     """
     if ema_fast_period <= 0:
         raise ValidationError(f"EMA fast period must be positive: {ema_fast_period}")
@@ -34,27 +40,27 @@ def validate_ema_ordering(ema_fast_period: int, ema_slow_period: int) -> None:
 
 def validate_lot_size(lot_size: float) -> None:
     """
-    Validate lot size.
+    校验下单手数。
 
-    Requirements: FixedLots > 0
+    要求：FixedLots > 0。
     """
     if lot_size <= 0:
         raise ValidationError(f"Lot size must be positive: {lot_size}")
 
-    # Additional validation: lot size should be reasonable
+    # 额外校验：手数需要处于合理范围内。
     if lot_size > 100:
         raise ValidationError(f"Lot size seems unreasonably large: {lot_size}")
 
-    # Check if lot size is a valid number (not NaN or inf)
+    # 检查手数是否为有效数值（不能是 NaN 或 inf）。
     if not math.isfinite(lot_size):
         raise ValidationError(f"Lot size must be a finite number: {lot_size}")
 
 
 def validate_threshold_non_negative(value: float, name: str) -> None:
     """
-    Validate that a threshold value is non-negative.
+    校验阈值必须为非负数。
 
-    Requirements: Various thresholds must be non-negative.
+    要求：各类阈值参数都不能小于 0。
     """
     if value < 0:
         raise ValidationError(f"{name} must be non-negative: {value}")
@@ -62,11 +68,11 @@ def validate_threshold_non_negative(value: float, name: str) -> None:
 
 def validate_strategy_parameters(params: Dict[str, Any]) -> None:
     """
-    Validate core strategy parameters required by Task 2.
+    校验任务 2 需要的核心策略参数。
 
-    Validates only the parameters explicitly mentioned in Task 2 requirements.
+    这里只校验任务 2 需求中明确提到的参数。
     """
-    # Check for required parameters
+    # 检查必填参数。
     required_params = [
         "ema_fast_period",
         "ema_slow_period",
@@ -77,11 +83,11 @@ def validate_strategy_parameters(params: Dict[str, Any]) -> None:
     if missing_params:
         raise ValidationError(f"Missing required parameters: {missing_params}")
 
-    # Individual validations for Task 2 scope
+    # 执行任务 2 范围内的逐项校验。
     validate_ema_ordering(params["ema_fast_period"], params["ema_slow_period"])
     validate_lot_size(params["fixed_lots"])
 
-    # Check optional threshold parameters if present
+    # 若存在可选阈值参数，则继续校验。
     threshold_params = [
         "low_vol_atr_points_floor",
         "low_vol_atr_spread_ratio_floor",

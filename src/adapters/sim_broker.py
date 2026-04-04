@@ -1,4 +1,16 @@
-"""Deterministic in-memory broker used for tests and simulation mode."""
+"""
+该文件提供用于测试和模拟模式的确定性内存中 Broker 实现。
+
+主要职责：
+1. 在内存中模拟持仓、订单和盈亏状态；
+2. 支持测试时预设 K 线数据，实现确定性回放；
+3. 提供与 MT5BrokerAdapter 相同的接口，方便测试替换。
+
+说明：
+- 该适配器不连接真实 MT5；
+- 所有数据保存在内存中，进程结束后数据丢失；
+- 适用于单元测试和策略回测。
+"""
 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -7,7 +19,7 @@ from src.adapters.broker_base import BrokerAdapter
 
 
 class SimBrokerAdapter(BrokerAdapter):
-    """In-memory single-position broker with deterministic behavior."""
+    """内存中的单持仓 Broker，行为确定性，用于测试。"""
 
     def __init__(self) -> None:
         self.connected = False
@@ -29,7 +41,7 @@ class SimBrokerAdapter(BrokerAdapter):
         return rates[-count:]
 
     def seed_rates(self, symbol: str, rates: List[Dict[str, Any]]) -> None:
-        """Test helper for deterministic rate replay."""
+        """供测试使用的辅助函数，用于注入可重复回放的行情数据。"""
         self._rates[symbol] = list(rates)
 
     def get_position(self, symbol: str, magic: int) -> Optional[Dict[str, Any]]:

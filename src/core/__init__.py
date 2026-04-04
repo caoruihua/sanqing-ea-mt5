@@ -1,3 +1,3 @@
 """
-Core trading logic (context building, entry gates, execution, protection).
+核心交易逻辑模块（上下文构建、入场门控、执行、保护）。
 """

@@ -1,3 +1,3 @@
 """
-Technical indicator calculations (EMA, ATR, etc.).
+技术指标计算模块（EMA、ATR 等）。
 """

@@ -29,22 +29,23 @@ from src.domain.models import MarketSnapshot
 from src.indicators.atr import calculate_atr
 from src.indicators.ema import calculate_emas
 
-# Type alias for bar data
-# MT5 returns bars as tuples: (time, open, high, low, close, tick_volume, spread, real_volume)
+# K 线数据的类型别名。
+# MT5 返回的 bar 元组字段依次为：
+# （时间、开盘价、最高价、最低价、收盘价、tick_volume、spread、real_volume）
 BarData = Tuple[
-    datetime,  # time
-    float,  # open
-    float,  # high
-    float,  # low
-    float,  # close
-    int,  # tick_volume
-    int,  # spread (in points)
-    int,  # real_volume
+    datetime,  # 时间
+    float,  # 开盘价
+    float,  # 最高价
+    float,  # 最低价
+    float,  # 收盘价
+    int,  # tick_volume 成交量字段
+    int,  # 点差字段，单位为 points
+    int,  # real_volume 成交量字段
 ]
 
 
 class InsufficientBarsError(ValueError):
-    """Raised when insufficient bars are available for indicator calculation."""
+    """当可用 K 线不足以完成指标计算时抛出。"""
 
     def __init__(self, indicator: str, required: int, available: int):
         super().__init__(
@@ -62,23 +63,23 @@ class ContextBuilder:
         self,
         symbol: str = DEFAULT_SYMBOL,
         timeframe: int = DEFAULT_TIMEFRAME,
-        digits: int = 2,  # XAUUSD typically has 2 decimal places
+        digits: int = 2,  # XAUUSD 通常保留 2 位小数
         magic_number: int = DEFAULT_MAGIC_NUMBER,
         ema_fast_period: int = DEFAULT_EMA_FAST_PERIOD,
         ema_slow_period: int = DEFAULT_EMA_SLOW_PERIOD,
         atr_period: int = DEFAULT_ATR_PERIOD,
     ):
         """
-        Initialize the context builder.
+        初始化上下文构建器。
 
-        Args:
-            symbol: Trading symbol (e.g., "XAUUSD")
-            timeframe: Timeframe in minutes (e.g., 5 for M5)
-            digits: Price decimal places
-            magic_number: Magic number for order identification
-            ema_fast_period: Fast EMA period (default 9)
-            ema_slow_period: Slow EMA period (default 21)
-            atr_period: ATR period (default 14)
+        参数：
+            symbol: 交易品种（如 `"XAUUSD"`）
+            timeframe: 时间框，单位为分钟（如 M5 对应 5）
+            digits: 价格小数位数
+            magic_number: 订单识别用 magic number
+            ema_fast_period: 快线 EMA 周期（默认 9）
+            ema_slow_period: 慢线 EMA 周期（默认 21）
+            atr_period: ATR 周期（默认 14）
         """
         self.symbol = symbol
         self.timeframe = timeframe
@@ -88,7 +89,7 @@ class ContextBuilder:
         self.ema_slow_period = ema_slow_period
         self.atr_period = atr_period
 
-        # Validate periods
+        # 校验周期参数。
         if ema_fast_period <= 0 or ema_slow_period <= 0:
             raise ValueError("EMA periods must be positive")
         if ema_fast_period >= ema_slow_period:
@@ -105,20 +106,20 @@ class ContextBuilder:
         ask: float,
     ) -> MarketSnapshot:
         """
-        Build a market snapshot from bar data and current prices.
+        根据 K 线数据和当前报价构建市场快照。
 
-        Args:
-            bars: List of bar data, most recent last. Each bar is a tuple:
-                  (time, open, high, low, close, tick_volume, spread, real_volume)
-            bid: Current bid price
-            ask: Current ask price
+        参数：
+            bars: K 线数据列表，最新一根放在最后；单根 K 线格式为
+                `(time, open, high, low, close, tick_volume, spread, real_volume)`
+            bid: 当前买价
+            ask: 当前卖价
 
-        Returns:
-            MarketSnapshot with all required fields
+        返回：
+            包含全部必需字段的 `MarketSnapshot`
 
-        Raises:
-            InsufficientBarsError: If insufficient bars for indicator calculation
-            ValueError: If bid/ask prices are invalid or bars list is empty
+        异常：
+            InsufficientBarsError: 当指标计算所需 K 线不足时抛出
+            ValueError: 当 bid/ask 非法或 bars 为空时抛出
         """
         if not bars:
             raise ValueError("No bars provided")
@@ -128,31 +129,31 @@ class ContextBuilder:
         if ask <= bid:
             raise ValueError(f"Ask price ({ask}) must be greater than bid ({bid})")
 
-        # Extract data from bars
+        # 从 K 线序列中拆出各个字段。
         times = [bar[0] for bar in bars]
         opens = [bar[1] for bar in bars]
         highs = [bar[2] for bar in bars]
         lows = [bar[3] for bar in bars]
         closes = [bar[4] for bar in bars]
-        volumes = [bar[7] for bar in bars]  # real_volume
-        spreads = [bar[6] for bar in bars]  # spread in points
+        volumes = [bar[7] for bar in bars]  # 成交量 real_volume
+        spreads = [bar[6] for bar in bars]  # 点差，单位为 points
 
-        # Last closed bar is the last bar in the list
+        # 列表中的最后一根就是最近已收盘 K 线。
         last_bar_idx = len(bars) - 1
         last_closed_bar_time = times[last_bar_idx]
 
-        # Calculate indicators
+        # 计算指标。
         ema_fast, ema_slow = self._calculate_emas(closes)
         atr14 = self._calculate_atr(highs, lows, closes)
 
-        # Calculate spread in points (use spread from last bar)
+        # 计算点差（直接使用最后一根 K 线自带的 spread 字段）。
         spread_points = float(spreads[last_bar_idx])
 
-        # Get historical data for trend calculations
+        # 取趋势计算所需的历史指标值。
         ema_fast_prev3 = self._get_ema_prev_value(closes, self.ema_fast_period, 3)
         ema_slow_prev3 = self._get_ema_prev_value(closes, self.ema_slow_period, 3)
 
-        # Get high/low for previous bars (for TrendContinuation strategy)
+        # 取前几根 K 线的高低点，供 TrendContinuation 策略使用。
         high_prev2 = self._get_prev_value(highs, 2)
         high_prev3 = self._get_prev_value(highs, 3)
         low_prev2 = self._get_prev_value(lows, 2)
@@ -165,7 +166,7 @@ class ContextBuilder:
         high_20 = self._calculate_high_20(highs)
         low_20 = self._calculate_low_20(lows)
 
-        # Create market snapshot
+        # 组装市场快照对象。
         snapshot = MarketSnapshot(
             symbol=self.symbol,
             timeframe=self.timeframe,
@@ -199,7 +200,7 @@ class ContextBuilder:
         return snapshot
 
     def _calculate_emas(self, closes: List[float]) -> Tuple[float, float]:
-        """Calculate fast and slow EMAs."""
+        """计算快线与慢线 EMA。"""
         try:
             ema_fast, ema_slow = calculate_emas(
                 close_prices=closes,
@@ -217,7 +218,7 @@ class ContextBuilder:
         return ema_fast, ema_slow
 
     def _calculate_atr(self, highs: List[float], lows: List[float], closes: List[float]) -> float:
-        """Calculate ATR(14)."""
+        """计算 ATR(14)。"""
         try:
             atr = calculate_atr(
                 highs=highs,
@@ -239,15 +240,15 @@ class ContextBuilder:
         self, closes: List[float], period: int, bars_back: int
     ) -> Optional[float]:
         """
-        Get EMA value from bars_back bars ago.
+        获取若干根 K 线之前的 EMA 值。
 
-        Returns None if insufficient data.
+        如果历史数据不足，则返回 `None`。
         """
-        # Need at least period + bars_back bars to calculate EMA bars_back bars ago
+        # 至少要有 `period + bars_back` 根 K 线，才能计算出对应历史位置的 EMA。
         if len(closes) < period + bars_back:
             return None
 
-        # Calculate EMA for the subset ending bars_back bars ago
+        # 取出终止于 `bars_back` 根之前的子序列来计算 EMA。
         subset_closes = closes[: -(bars_back - 1)] if bars_back > 1 else closes
         from src.indicators.ema import calculate_ema
 
@@ -259,13 +260,13 @@ class ContextBuilder:
 
     def _get_prev_value(self, values: List[float], bars_back: int) -> Optional[float]:
         """
-        Get value from bars_back bars ago.
+        获取若干根 K 线之前的数值。
 
-        Returns None if insufficient data.
+        如果历史数据不足，则返回 `None`。
         """
         if len(values) < bars_back:
             return None
-        return values[-(bars_back + 1)]  # -1 for last bar, -bars_back for offset
+        return values[-(bars_back + 1)]  # -1 表示最后一根，额外偏移 `bars_back`
 
     def _calculate_median_body_20(self, opens: List[float], closes: List[float]) -> Optional[float]:
         """计算当前 bar 之前 20 根 K 线的实体中位数。"""
@@ -311,19 +312,19 @@ def create_market_snapshot(
     magic_number: int = DEFAULT_MAGIC_NUMBER,
 ) -> MarketSnapshot:
     """
-    Convenience function to create a market snapshot with default parameters.
+    使用默认参数创建市场快照的便捷函数。
 
-    Args:
-        bars: List of bar data
-        bid: Current bid price
-        ask: Current ask price
-        symbol: Trading symbol
-        timeframe: Timeframe in minutes
-        digits: Price decimal places
-        magic_number: Magic number for order identification
+    参数：
+        bars: K 线数据列表
+        bid: 当前买价
+        ask: 当前卖价
+        symbol: 交易品种
+        timeframe: 时间框，单位为分钟
+        digits: 价格小数位数
+        magic_number: 订单识别用 magic number
 
-    Returns:
-        MarketSnapshot
+    返回：
+        `MarketSnapshot`
     """
     builder = ContextBuilder(
         symbol=symbol,

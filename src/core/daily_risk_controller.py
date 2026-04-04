@@ -1,4 +1,4 @@
-"""Server-day daily profit lock controller."""
+"""基于服务器日的日内盈利锁定控制器。"""
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -9,7 +9,7 @@ from src.domain.models import RuntimeState
 
 @dataclass
 class DailyRiskUpdate:
-    """Result of one daily-risk synchronization tick."""
+    """一次日风险同步周期的结果。"""
 
     day_key: str
     daily_locked: bool
@@ -18,7 +18,7 @@ class DailyRiskUpdate:
 
 
 class DailyRiskController:
-    """Maintain server-day lock state from realized closed profit."""
+    """根据已实现平仓盈亏维护服务器日锁定状态。"""
 
     def __init__(self, daily_profit_stop_usd: float = DEFAULT_DAILY_PROFIT_STOP_USD) -> None:
         self.daily_profit_stop_usd = daily_profit_stop_usd

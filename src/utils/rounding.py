@@ -1,12 +1,14 @@
 """
-Price and volume rounding utilities.
+该文件提供价格和手数的归一化/舍入工具函数。
 
-This module provides functions for normalizing prices and volumes
-according to symbol-specific precision requirements (digits, tick size,
-volume step, min/max volume).
+主要职责：
+1. 根据品种精度要求（小数位、tick size）归一化价格；
+2. 根据手数步长归一化交易量；
+3. 支持多种舍入模式（四舍五入、向上取整、向下取整）。
 
-Based on MT5 market information constants and requirements for
-proper price/volume normalization.
+说明：
+- 基于 MT5 市场信息常量设计；
+- 确保下单价格和手数符合 Broker 要求。
 """
 
 import math
@@ -15,7 +17,7 @@ from typing import Optional, Union
 
 
 class RoundingError(ValueError):
-    """Raised when rounding fails."""
+    """归一化或舍入失败时抛出。"""
 
     pass
 
@@ -27,24 +29,24 @@ def normalize_price(
     rounding_method: str = "half_up",
 ) -> float:
     """
-    Normalize price to the correct number of decimal places.
+    将价格归一化到正确的小数位数。
 
-    Args:
-        price: The price to normalize
-        digits: Number of decimal places (e.g., 5 for XAUUSD, 2 for EURUSD)
-        tick_size: Minimum price movement (if None, uses 10^(-digits))
-        rounding_method: 'half_up', 'down', or 'up'
+    参数：
+        price: 待归一化的价格
+        digits: 小数位数（例如 XAUUSD 常用 5，EURUSD 常用 2）
+        tick_size: 最小价格跳动（若为 `None`，则使用 `10^(-digits)`）
+        rounding_method: 舍入方式，可选 `'half_up'`、`'down'` 或 `'up'`
 
-    Returns:
-        Normalized price as float
+    返回：
+        归一化后的浮点价格
 
-    Raises:
-        RoundingError: If price cannot be normalized
+    异常：
+        RoundingError: 当价格无法正确归一化时抛出
     """
     if price <= 0:
         raise RoundingError(f"Price must be positive: {price}")
 
-    # Handle optional tick_size
+    # 处理可选的 tick_size 参数。
     actual_tick_size: float
     if tick_size is None:
         actual_tick_size = 10**-digits
@@ -54,17 +56,17 @@ def normalize_price(
     if actual_tick_size <= 0:
         raise RoundingError(f"Tick size must be positive: {actual_tick_size}")
 
-    # Convert to Decimal for precise arithmetic
+    # 转成 Decimal，避免浮点误差。
     try:
         price_dec = Decimal(str(price))
         tick_dec = Decimal(str(actual_tick_size))
     except Exception as e:
         raise RoundingError(f"Failed to convert to Decimal: {e}") from e
 
-    # Calculate number of ticks
+    # 计算当前价格对应多少个最小跳动单位。
     ticks = price_dec / tick_dec
 
-    # Round to nearest tick based on method
+    # 按指定方式舍入到最近的跳动单位。
     if rounding_method == "half_up":
         ticks_rounded = Decimal(ticks.to_integral_value(rounding=ROUND_HALF_UP))
     elif rounding_method == "down":
@@ -74,15 +76,15 @@ def normalize_price(
     else:
         raise RoundingError(f"Unknown rounding method: {rounding_method}")
 
-    # Convert back to price
+    # 转回价格数值。
     normalized_price = float(ticks_rounded * tick_dec)
 
-    # Verify the result has correct precision
+    # 校验结果的小数精度是否符合要求。
     normalized_str = str(normalized_price)
     if "." in normalized_str:
         decimal_places = len(normalized_str.split(".")[1])
         if decimal_places > digits:
-            # This shouldn't happen, but check anyway
+            # 理论上不应发生，但仍做兜底校验。
             normalized_price = round(normalized_price, digits)
 
     return normalized_price
@@ -96,20 +98,20 @@ def normalize_volume(
     rounding_method: str = "up",
 ) -> float:
     """
-    Normalize volume to valid step size within min/max bounds.
+    将手数归一化到合法步长，并限制在最小/最大范围内。
 
-    Args:
-        volume: Desired volume (lots)
-        volume_step: Minimum volume increment (e.g., 0.01 for micro lots)
-        min_volume: Minimum allowed volume
-        max_volume: Maximum allowed volume
-        rounding_method: 'up', 'down', or 'nearest'
+    参数：
+        volume: 目标手数（lots）
+        volume_step: 最小手数步长（例如 0.01）
+        min_volume: 允许的最小手数
+        max_volume: 允许的最大手数
+        rounding_method: 舍入方式，可选 `'up'`、`'down'` 或 `'nearest'`
 
-    Returns:
-        Normalized volume as float
+    返回：
+        归一化后的浮点手数
 
-    Raises:
-        RoundingError: If volume is out of bounds or cannot be normalized
+    异常：
+        RoundingError: 当手数越界或无法归一化时抛出
     """
     if volume <= 0:
         raise RoundingError(f"Volume must be positive: {volume}")
@@ -125,17 +127,17 @@ def normalize_volume(
             f"Maximum volume ({max_volume}) must be greater than minimum ({min_volume})"
         )
 
-    # Check bounds first
+    # 先检查上下界。
     if volume < min_volume:
         raise RoundingError(f"Volume {volume} is below minimum {min_volume}")
 
     if volume > max_volume:
         raise RoundingError(f"Volume {volume} exceeds maximum {max_volume}")
 
-    # Calculate number of steps
+    # 计算对应多少个步长单位。
     steps = volume / volume_step
 
-    # Round based on method
+    # 按指定方式舍入步长数。
     if rounding_method == "up":
         steps_rounded = math.ceil(steps)
     elif rounding_method == "down":
@@ -147,16 +149,16 @@ def normalize_volume(
 
     normalized_volume = steps_rounded * volume_step
 
-    # Ensure within bounds after rounding
+    # 舍入后再次确保仍在合法范围内。
     if normalized_volume < min_volume:
         normalized_volume = min_volume
     elif normalized_volume > max_volume:
         normalized_volume = max_volume
 
-    # Verify step alignment
+    # 校验是否与步长对齐。
     remainder = normalized_volume % volume_step
-    if abs(remainder) > 1e-10:  # Allow for floating point error
-        # Force alignment
+    if abs(remainder) > 1e-10:  # 允许存在极小的浮点误差
+        # 强制对齐到合法步长。
         normalized_volume = round(normalized_volume / volume_step) * volume_step
 
     return normalized_volume
@@ -168,17 +170,17 @@ def calculate_points_from_price(
     digits: int,
 ) -> float:
     """
-    Calculate points difference between two prices.
+    计算两个价格之间相差多少个 points。
 
-    In Forex, 1 point = 0.00001 for 5-digit prices, 0.0001 for 4-digit.
+    在外汇里，5 位小数价格通常 1 point = 0.00001，4 位小数通常为 0.0001。
 
-    Args:
-        price1: First price
-        price2: Second price
-        digits: Number of decimal places
+    参数：
+        price1: 第一个价格
+        price2: 第二个价格
+        digits: 小数位数
 
-    Returns:
-        Points difference
+    返回：
+        价格差对应的 points 数值
     """
     point_size = 10**-digits
     points = abs(price1 - price2) / point_size
@@ -191,20 +193,20 @@ def calculate_price_from_points(
     digits: int,
 ) -> float:
     """
-    Calculate price from points difference.
+    根据 points 差值推算目标价格。
 
-    Args:
-        base_price: Base price
-        points: Points to add/subtract
-        digits: Number of decimal places
+    参数：
+        base_price: 基准价格
+        points: 需要加减的 points 数
+        digits: 小数位数
 
-    Returns:
-        Calculated price
+    返回：
+        计算后的价格
     """
     point_size = 10**-digits
     price = base_price + (points * point_size)
 
-    # Normalize to correct digits
+    # 再按品种精度做一次归一化。
     return normalize_price(price, digits)
 
 
@@ -213,14 +215,14 @@ def calculate_atr_points(
     digits: int,
 ) -> float:
     """
-    Calculate ATR in points.
+    将 ATR 的价格单位数值换算成 points。
 
-    Args:
-        atr_value: ATR value in price units
-        digits: Number of decimal places
+    参数：
+        atr_value: 价格单位下的 ATR 数值
+        digits: 小数位数
 
-    Returns:
-        ATR in points
+    返回：
+        points 单位下的 ATR 数值
     """
     point_size = 10**-digits
     atr_points = atr_value / point_size
@@ -233,14 +235,14 @@ def calculate_spread_points(
     digits: int,
 ) -> float:
     """
-    Calculate spread in points.
+    计算点差对应的 points 数值。
 
-    Args:
-        ask: Ask price
-        bid: Bid price
-        digits: Number of decimal places
+    参数：
+        ask: 卖价
+        bid: 买价
+        digits: 小数位数
 
-    Returns:
-        Spread in points
+    返回：
+        points 单位下的点差
     """
     return calculate_points_from_price(ask, bid, digits)

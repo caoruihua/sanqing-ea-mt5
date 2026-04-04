@@ -1,3 +1,3 @@
 """
-Application orchestration and entry points.
+应用编排与运行入口。
 """

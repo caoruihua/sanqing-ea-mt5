@@ -1,3 +1,3 @@
 """
-Trading strategy implementations (ExpansionFollow, Pullback, TrendContinuation).
+交易策略实现集合（ExpansionFollow、Pullback、TrendContinuation）。
 """

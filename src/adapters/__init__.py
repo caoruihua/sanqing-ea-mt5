@@ -1,3 +1,3 @@
 """
-Broker adapters (MT5, Sim) with unified interface.
+提供统一接口的 Broker 适配器集合（MT5、Sim）。
 """

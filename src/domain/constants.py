@@ -1,51 +1,57 @@
 """
-Trading system constants and default parameters.
+该文件定义交易系统的常量和默认参数。
 
-All magic numbers, thresholds, and configuration defaults are defined here
-to ensure consistency across the system.
+主要职责：
+1. 集中管理所有魔法数字、阈值和配置默认值；
+2. 确保系统各处使用一致的参数；
+3. 提供策略参数、风控参数、保护参数的统一定义。
+
+说明：
+- 所有参数均基于 mt5-rewrite-requirements.md 需求文档；
+- 修改此文件的参数会影响整个系统的行为。
 """
 
-# Magic number for order identification (must match StrategySelector.mq4)
+# 订单识别用 magic number（必须与 StrategySelector.mq4 保持一致）
 DEFAULT_MAGIC_NUMBER = 20260313
 
-# Trading symbol and timeframe
+# 交易品种与时间框
 DEFAULT_SYMBOL = "XAUUSD"
-DEFAULT_TIMEFRAME = 5  # M5 in minutes
+DEFAULT_TIMEFRAME = 5  # M5，单位为分钟
 
-# Logging
-DEFAULT_LOG_LEVEL = 1  # 0=off, 1=minimal, 2=verbose, 3=debug
+# 日志
+DEFAULT_LOG_LEVEL = 1  # 0=关闭，1=精简，2=详细，3=调试
 
-# Daily risk limits
+# 日内风险限制
 DEFAULT_MAX_TRADES_PER_DAY = 30
 DEFAULT_DAILY_PROFIT_STOP_USD = 50.0
 
-# Trading execution parameters
+# 交易执行参数
 DEFAULT_FIXED_LOTS = 0.01
-DEFAULT_SLIPPAGE = 30  # points
+DEFAULT_SLIPPAGE = 30  # 滑点单位为 points
 DEFAULT_MAX_RETRIES = 6
 
-# Indicator parameters
+# 指标参数
 DEFAULT_EMA_FAST_PERIOD = 9
 DEFAULT_EMA_SLOW_PERIOD = 21
 DEFAULT_ATR_PERIOD = 14
 
-# Volatility filter thresholds
+# 波动率过滤阈值
 DEFAULT_LOW_VOL_ATR_POINTS_FLOOR = 300.0
 DEFAULT_LOW_VOL_ATR_SPREAD_RATIO_FLOOR = 3.0
 
-# Strategy-specific parameters
-# TrendContinuation
+# 策略专用参数
+# TrendContinuation 策略参数
 TREND_CONTINUATION_ATR_MULTIPLIER_BREAKOUT = 0.20
 TREND_CONTINUATION_ATR_MULTIPLIER_BODY = 0.35
 TREND_CONTINUATION_INITIAL_SL_ATR = 1.2
 TREND_CONTINUATION_INITIAL_TP_ATR = 2.0
 
-# Pullback
+# Pullback 策略参数
 PULLBACK_EMA_TOLERANCE_ATR = 0.15
 PULLBACK_INITIAL_SL_ATR = 1.2
 PULLBACK_INITIAL_TP_ATR = 2.0
 
-# ExpansionFollow
+# ExpansionFollow 策略参数
 EXPANSION_FOLLOW_BODY_ATR_MIN = 4.0
 EXPANSION_FOLLOW_BODY_MEDIAN_RATIO_MIN = 2.20
 EXPANSION_FOLLOW_BODY_PREV3_MAX_RATIO_MIN = 1.80
@@ -55,7 +61,7 @@ EXPANSION_FOLLOW_BREAKOUT_ATR_BUFFER = 0.10
 EXPANSION_FOLLOW_STOP_LOSS_RANGE_RATIO = 0.6
 EXPANSION_FOLLOW_INITIAL_TP_ATR = 2.0
 
-# Protection engine parameters
+# 保护引擎参数
 PROTECTION_STAGE1_ATR_MULTIPLIER = 1.0
 PROTECTION_STAGE1_SL_BUFFER_ATR = 0.1
 PROTECTION_STAGE1_TP_ATR = 2.5
@@ -65,32 +71,32 @@ PROTECTION_STAGE2_SL_DISTANCE_ATR = 0.9
 PROTECTION_STAGE2_TP_DISTANCE_ATR = 0.8
 
 
-# Entry gate rejection reason codes
-# These codes are used in logs to indicate why an entry was blocked
+# 入场门控拒绝原因码
+# 这些代码会写入日志，用于说明为什么此次入场被拦截
 class RejectionReason:
-    """Entry gate rejection reasons."""
+    """入场门控拒绝原因定义。"""
 
-    # Core validation failures
+    # 核心校验失败
     NOT_NEW_CLOSED_BAR = "NOT_NEW_CLOSED_BAR"
     DAILY_LOCKED = "DAILY_LOCKED"
     MAX_TRADES_EXCEEDED = "MAX_TRADES_EXCEEDED"
     EXISTING_POSITION = "EXISTING_POSITION"
     LOW_VOLATILITY = "LOW_VOLATILITY"
 
-    # Strategy-specific failures
+    # 策略相关失败
     NO_STRATEGY_SIGNAL = "NO_STRATEGY_SIGNAL"
     STRATEGY_CANNOT_TRADE = "STRATEGY_CANNOT_TRADE"
 
-    # System failures
+    # 系统级失败
     INSUFFICIENT_BARS = "INSUFFICIENT_BARS"
     MARKET_CLOSED = "MARKET_CLOSED"
     CONNECTION_ERROR = "CONNECTION_ERROR"
 
 
-# Priority ordering constants
-# Fixed strategy priority as defined in requirements
+# 优先级顺序常量
+# 按需求文档定义的固定策略优先级
 class StrategyPriority:
-    """Strategy priority ordering (highest to lowest)."""
+    """策略优先级顺序（从高到低）。"""
 
     EXPANSION_FOLLOW = 1
     PULLBACK = 2

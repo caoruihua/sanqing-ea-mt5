@@ -18,19 +18,19 @@ from src.domain.models import MarketSnapshot, RuntimeState, SignalDecision
 
 
 class BaseStrategy(ABC):
-    """Strategy interface used by priority selector."""
+    """供优先级选择器调用的统一策略接口。"""
 
     @property
     @abstractmethod
     def name(self) -> str:
-        """Human-readable strategy name."""
+        """返回可读的策略名称。"""
 
     @abstractmethod
     def can_trade(self, snapshot: MarketSnapshot, state: RuntimeState) -> bool:
-        """Return whether this strategy is eligible to evaluate."""
+        """返回当前策略是否满足评估前提。"""
 
     @abstractmethod
     def build_intent(
         self, snapshot: MarketSnapshot, state: RuntimeState
     ) -> Optional[SignalDecision]:
-        """Return a signal decision when conditions are satisfied."""
+        """在条件满足时返回信号决策。"""

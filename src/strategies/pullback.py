@@ -23,7 +23,7 @@ from src.strategies.base import BaseStrategy
 
 
 class PullbackStrategy(BaseStrategy):
-    """Wait for EMA pullback rejection and rejoin trend direction."""
+    """等待价格回踩 EMA 后出现拒绝形态，再顺势重新加入趋势。"""
 
     def __init__(self, fixed_lots: float) -> None:
         self.fixed_lots = fixed_lots

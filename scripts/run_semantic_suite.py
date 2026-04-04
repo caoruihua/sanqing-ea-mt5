@@ -1,4 +1,4 @@
-"""Run semantic regression checks and emit JSON report."""
+"""运行语义回归检查并输出 JSON 报告。"""
 
 import argparse
 import json

@@ -1,1 +1,1 @@
-"""Wrapper package exposing CLI entrypoint from src.app."""
+"""暴露 `src.app` CLI 入口的兼容包装包。"""

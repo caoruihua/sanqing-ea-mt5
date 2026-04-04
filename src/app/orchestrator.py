@@ -40,11 +40,11 @@ StructuredLogger = _logger.StructuredLogger
 
 
 class ConnectFailedError(RuntimeError):
-    """Raised when broker initialization fails at startup."""
+    """启动时 Broker 初始化失败时抛出。"""
 
 
 class Orchestrator:
-    """Coordinates snapshot handling, risk, protection, signal, gate, execution, persistence."""
+    """协调快照处理、风险控制、保护、信号、门控、执行与持久化流程。"""
 
     def __init__(
         self,
@@ -88,7 +88,7 @@ class Orchestrator:
             )
             self.logger.info("state_loaded", day_key=self.state.day_key)
         except StateStoreNotFoundError:
-            # Allow first-time start when no state file exists.
+            # 当状态文件不存在时，允许系统首次启动。
             self.logger.info("state_missing", day_key=self.state.day_key)
         except StateStoreCorruptedError as exc:
             self.logger.info("state_corrupted", reason=str(exc))

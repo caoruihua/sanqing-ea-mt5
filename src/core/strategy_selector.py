@@ -28,7 +28,7 @@ SUPPRESSED_BY_HIGHER_PRIORITY = "SUPPRESSED_BY_HIGHER_PRIORITY"
 
 @dataclass
 class StrategySelectionResult:
-    """Selection output containing winner and suppression metadata."""
+    """包含胜出策略及抑制元数据的选择结果。"""
 
     intent: Optional[SignalDecision]
     rejection_reason: Optional[str] = None
@@ -36,7 +36,7 @@ class StrategySelectionResult:
 
 
 class StrategySelector:
-    """Select first valid signal using strict priority ordering."""
+    """按严格优先级顺序选择首个有效信号。"""
 
     def __init__(
         self,

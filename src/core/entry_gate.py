@@ -28,14 +28,14 @@ from src.domain.models import MarketSnapshot, RuntimeState, SignalDecision, Trad
 
 @dataclass
 class EntryGateResult:
-    """Gate decision output for one closed-bar entry attempt."""
+    """单次收盘 K 线入场尝试的门控结果。"""
 
     intent: Optional[TradeIntent]
     reason_code: Optional[str]
 
 
 class EntryGate:
-    """Evaluate fixed-order gate checks before creating a TradeIntent."""
+    """在创建 `TradeIntent` 前按固定顺序执行门控检查。"""
 
     def __init__(
         self,
@@ -56,7 +56,7 @@ class EntryGate:
         strategy_can_trade: bool,
         action_id: Optional[str] = None,
     ) -> EntryGateResult:
-        """Run entry checks in strict sequence and return TradeIntent when passed."""
+        """按严格顺序执行入场检查，并在通过时返回 `TradeIntent`。"""
         if state.last_entry_bar_time == snapshot.last_closed_bar_time:
             return EntryGateResult(intent=None, reason_code=RejectionReason.NOT_NEW_CLOSED_BAR)
 

@@ -20,25 +20,25 @@ from typing import Any, Dict, List, Optional
 
 from src.adapters.broker_base import BrokerAdapter
 
-try:  # pragma: no cover - import availability is environment-dependent
+try:  # pragma: no cover - 导入可用性依赖当前运行环境
     _mt5 = importlib.import_module("MetaTrader5")
-except Exception:  # pragma: no cover - keep adapter importable without MT5 terminal
+except Exception:  # pragma: no cover - 即使本机没有 MT5 终端也要保证适配器可导入
     _mt5 = None
 
 mt5: Any = _mt5
 
 
 class UnknownRetcodeError(ValueError):
-    """Raised when retcode has no mapping in normalized table."""
+    """当 retcode 在标准化映射表中不存在时抛出。"""
 
 
 class MT5ConnectionError(RuntimeError):
-    """Raised when Python cannot initialize a connection to local MT5 terminal."""
+    """当 Python 无法初始化与本机 MT5 终端的连接时抛出。"""
 
 
 @dataclass(frozen=True)
 class RetcodeMapping:
-    """Normalized retcode semantics for retry/success decisions."""
+    """用于重试与成功判断的标准化 retcode 语义。"""
 
     code: int
     reason: str
@@ -72,7 +72,7 @@ _RETCODE_TABLE = {
 
 
 def normalize_retcode(retcode: int) -> RetcodeMapping:
-    """Convert raw MT5 retcode to normalized semantics."""
+    """将原始 MT5 retcode 转换为标准化语义。"""
     if retcode not in _RETCODE_TABLE:
         raise UnknownRetcodeError(f"Unknown MT5 retcode: {retcode}")
     return _RETCODE_TABLE[retcode]
