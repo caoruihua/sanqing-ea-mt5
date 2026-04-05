@@ -208,6 +208,8 @@ class RuntimeState:
     # 系统状态
     last_processed_bar_time: Optional[datetime] = None
     position_ticket: Optional[int] = None  # MT5 持仓 ticket
+    last_position_ticket: Optional[int] = None  # 用于检测持仓消失的上一次持仓 ticket
+    position_strategy: Optional[str] = None  # 当前持仓的策略名称
 
     def __post_init__(self):
         """校验运行时状态。"""
