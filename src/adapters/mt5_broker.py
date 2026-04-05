@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from src.adapters.broker_base import BrokerAdapter
+from src.utils.logger import StructuredLogger
 
 try:  # pragma: no cover - 导入可用性依赖当前运行环境
     _mt5 = importlib.import_module("MetaTrader5")
@@ -81,8 +82,9 @@ def normalize_retcode(retcode: int) -> RetcodeMapping:
 class MT5BrokerAdapter(BrokerAdapter):
     """对 MT5 官方库做最薄的一层封装，供策略执行链路统一调用。"""
 
-    def __init__(self) -> None:
+    def __init__(self, logger: Optional[StructuredLogger] = None) -> None:
         self.last_connect_error: Optional[str] = None
+        self.logger = logger
 
     def connect(self) -> bool:
         if mt5 is None:
@@ -102,6 +104,27 @@ class MT5BrokerAdapter(BrokerAdapter):
         if mt5 is None:
             raise RuntimeError("MetaTrader5 package is unavailable")
         rates = mt5.copy_rates_from_pos(symbol, timeframe, 1, count)
+        return self._normalize_rates(rates)
+
+    def get_rates_until(
+        self,
+        symbol: str,
+        timeframe: int,
+        count: int,
+        end_time: int,
+        lookback_seconds: int,
+    ) -> List[Dict[str, Any]]:
+        if mt5 is None:
+            raise RuntimeError("MetaTrader5 package is unavailable")
+        start_time = max(end_time - lookback_seconds, 0)
+        rates = mt5.copy_rates_range(symbol, timeframe, start_time, end_time)
+        normalized = self._normalize_rates(rates)
+        if not normalized:
+            return []
+        return normalized[-count:]
+
+    @staticmethod
+    def _normalize_rates(rates: Any) -> List[Dict[str, Any]]:
         if rates is None:
             return []
         field_names = list(getattr(rates.dtype, "names", []) or [])
@@ -116,10 +139,18 @@ class MT5BrokerAdapter(BrokerAdapter):
         if not positions:
             return None
         for pos in positions:
-            as_dict = pos._asdict()
+            as_dict = self._normalize_position(pos._asdict())
             if int(as_dict.get("magic", -1)) == magic:
                 return as_dict
         return None
+
+    @staticmethod
+    def _normalize_position(position: Dict[str, Any]) -> Dict[str, Any]:
+        normalized = dict(position)
+        position_type = normalized.get("type")
+        if "order_type" not in normalized:
+            normalized["order_type"] = "BUY" if int(position_type) == 0 else "SELL"
+        return normalized
 
     def send_order(
         self,
@@ -187,7 +218,11 @@ class MT5BrokerAdapter(BrokerAdapter):
         }
 
     def close_position(
-        self, ticket: int, close_price: float, closed_at: datetime
+        self,
+        ticket: int,
+        close_price: float,
+        closed_at: datetime,
+        close_reason: str = "MANUAL",
     ) -> Dict[str, Any]:
         if mt5 is None:
             raise RuntimeError("MetaTrader5 package is unavailable")
@@ -207,7 +242,7 @@ class MT5BrokerAdapter(BrokerAdapter):
             "volume": float(pos.volume),
             "price": close_price,
             "deviation": 30,
-            "comment": f"close@{closed_at.isoformat()}",
+            "comment": f"{close_reason}@{closed_at.isoformat()}",
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": mt5.ORDER_FILLING_IOC,
         }
@@ -216,10 +251,24 @@ class MT5BrokerAdapter(BrokerAdapter):
             return {"success": False, "reason": "NO_RESULT", "retryable": True}
 
         mapped = normalize_retcode(int(result.retcode))
+
+        # 记录平仓日志
+        if self.logger is not None and mapped.success:
+            pnl = float(getattr(pos, "profit", 0.0))
+            self.logger.info(
+                f"{close_reason}_position_closed",
+                ticket=ticket,
+                close_price=close_price,
+                close_reason=close_reason,
+                pnl=pnl,
+                symbol=pos.symbol,
+            )
+
         return {
             "success": mapped.success,
             "retcode": mapped.code,
             "reason": mapped.reason,
+            "close_reason": close_reason,
             "retryable": mapped.retryable,
             "ticket": int(getattr(result, "order", ticket)),
             "raw": result,
@@ -248,3 +297,41 @@ class MT5BrokerAdapter(BrokerAdapter):
             total_profit += float(getattr(deal, "fee", 0.0))
 
         return total_profit
+
+    def get_last_closed_deal(self, ticket: int, since: datetime) -> Optional[Dict[str, Any]]:
+        """获取指定持仓ticket的最近平仓成交记录。
+
+        Args:
+            ticket: 持仓ticket
+            since: 查询起始时间
+
+        Returns:
+            成交记录字典，如果没有找到则返回None
+        """
+        if mt5 is None:
+            raise RuntimeError("MetaTrader5 package is unavailable")
+
+        deals = mt5.history_deals_get(since, datetime.now())
+        if not deals:
+            return None
+
+        out_entry = getattr(mt5, "DEAL_ENTRY_OUT", -2)
+        out_by_entry = getattr(mt5, "DEAL_ENTRY_OUT_BY", -3)
+
+        # 按时间倒序查找该持仓的平仓记录
+        for deal in reversed(deals):
+            entry = int(getattr(deal, "entry", -1))
+            if entry not in {out_entry, out_by_entry}:
+                continue
+            position_id = int(getattr(deal, "position_id", 0))
+            if position_id == ticket:
+                return {
+                    "ticket": int(getattr(deal, "ticket", 0)),
+                    "position_id": position_id,
+                    "price": float(getattr(deal, "price", 0.0)),
+                    "profit": float(getattr(deal, "profit", 0.0)),
+                    "swap": float(getattr(deal, "swap", 0.0)),
+                    "commission": float(getattr(deal, "commission", 0.0)),
+                    "time": datetime.fromtimestamp(int(getattr(deal, "time", 0))).isoformat(),
+                }
+        return None
