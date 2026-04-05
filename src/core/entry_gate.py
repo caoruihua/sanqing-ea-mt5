@@ -24,6 +24,7 @@ from src.domain.constants import (
     RejectionReason,
 )
 from src.domain.models import MarketSnapshot, RuntimeState, SignalDecision, TradeIntent
+from src.utils.logger import StructuredLogger
 
 
 @dataclass
@@ -42,10 +43,12 @@ class EntryGate:
         max_trades_per_day: int = DEFAULT_MAX_TRADES_PER_DAY,
         low_vol_atr_points_floor: float = DEFAULT_LOW_VOL_ATR_POINTS_FLOOR,
         low_vol_atr_spread_ratio_floor: float = DEFAULT_LOW_VOL_ATR_SPREAD_RATIO_FLOOR,
+        logger: Optional[StructuredLogger] = None,
     ) -> None:
         self.max_trades_per_day = max_trades_per_day
         self.low_vol_atr_points_floor = low_vol_atr_points_floor
         self.low_vol_atr_spread_ratio_floor = low_vol_atr_spread_ratio_floor
+        self.logger = logger
 
     def evaluate(
         self,
@@ -57,23 +60,37 @@ class EntryGate:
         action_id: Optional[str] = None,
     ) -> EntryGateResult:
         """按严格顺序执行入场检查，并在通过时返回 `TradeIntent`。"""
+        strategy_name = signal.strategy_name
+
         if state.last_entry_bar_time == snapshot.last_closed_bar_time:
-            return EntryGateResult(intent=None, reason_code=RejectionReason.NOT_NEW_CLOSED_BAR)
+            reason = RejectionReason.NOT_NEW_CLOSED_BAR
+            self._log_rejection(strategy_name, reason, snapshot.symbol)
+            return EntryGateResult(intent=None, reason_code=reason)
 
         if state.daily_locked:
-            return EntryGateResult(intent=None, reason_code=RejectionReason.DAILY_LOCKED)
+            reason = RejectionReason.DAILY_LOCKED
+            self._log_rejection(strategy_name, reason, snapshot.symbol)
+            return EntryGateResult(intent=None, reason_code=reason)
 
         if state.trades_today >= self.max_trades_per_day:
-            return EntryGateResult(intent=None, reason_code=RejectionReason.MAX_TRADES_EXCEEDED)
+            reason = RejectionReason.MAX_TRADES_EXCEEDED
+            self._log_rejection(strategy_name, reason, snapshot.symbol)
+            return EntryGateResult(intent=None, reason_code=reason)
 
         if has_existing_position:
-            return EntryGateResult(intent=None, reason_code=RejectionReason.EXISTING_POSITION)
+            reason = RejectionReason.EXISTING_POSITION
+            self._log_rejection(strategy_name, reason, snapshot.symbol)
+            return EntryGateResult(intent=None, reason_code=reason)
 
         if self._is_low_volatility(snapshot):
-            return EntryGateResult(intent=None, reason_code=RejectionReason.LOW_VOLATILITY)
+            reason = RejectionReason.LOW_VOLATILITY
+            self._log_rejection(strategy_name, reason, snapshot.symbol)
+            return EntryGateResult(intent=None, reason_code=reason)
 
         if not strategy_can_trade:
-            return EntryGateResult(intent=None, reason_code=RejectionReason.STRATEGY_CANNOT_TRADE)
+            reason = RejectionReason.STRATEGY_CANNOT_TRADE
+            self._log_rejection(strategy_name, reason, snapshot.symbol)
+            return EntryGateResult(intent=None, reason_code=reason)
 
         resolved_action_id = action_id or self._make_action_id(snapshot, signal)
         intent = TradeIntent(
@@ -83,6 +100,17 @@ class EntryGate:
         )
         state.last_entry_bar_time = snapshot.last_closed_bar_time
         return EntryGateResult(intent=intent, reason_code=None)
+
+    def _log_rejection(self, strategy_name: str, reason: str, symbol: str) -> None:
+        """记录门控拒绝日志。"""
+        if self.logger is not None:
+            event_name = f"{strategy_name}_entry_rejected"
+            self.logger.warning(
+                event_name,
+                strategy_name=strategy_name,
+                reason=reason,
+                symbol=symbol,
+            )
 
     def _is_low_volatility(self, snapshot: MarketSnapshot) -> bool:
         atr_points = snapshot.atr14 * (10**snapshot.digits)
