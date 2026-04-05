@@ -85,12 +85,31 @@ uv run black src tests
 ### Running the Application
 
 ```bash
-# Demo mode with simulation broker
-uv run python -m app.run --mode sim --config config/runtime.ini --duration-sec 30
+# Run one cycle only
+uv run python run.py --config config/runtime.ini --once
 
-# MT5 Demo mode (requires MT5 terminal running)
-uv run python -m app.run --mode mt5-demo --config config/runtime.ini --duration-sec 120
+# Polling mode (rollback-safe legacy trigger source)
+uv run python run.py --config config/runtime.ini --trigger-mode poll --poll-sec 2
+
+# Real tick wake-up mode
+uv run python run.py --config config/runtime.ini --trigger-mode tick_http
 ```
+
+If `--trigger-mode` is omitted, `run.py` uses `trigger_mode` from `config/runtime.ini`. The CLI flag only overrides config for that launch.
+
+### TickRelay Setup
+
+`tick_http` mode requires the companion EA `mt5/TickRelay.mq5`:
+
+1. Attach `TickRelay.mq5` to the target MT5 chart.
+2. Open **Tools -> Options -> Expert Advisors**.
+3. Enable WebRequest and whitelist `http://127.0.0.1:8765`.
+4. Keep TickRelay and Python runtime on the same symbol and timeframe.
+
+TickRelay behavior:
+- `OnTick` queues one pending wake-up per closed bar and refreshes the latest tick for that bar.
+- `OnTimer` sends queued wake-ups via `WebRequest` in arrival order.
+- It never sends orders, modifies positions, or closes trades.
 
 ## Project Structure
 
@@ -143,6 +162,22 @@ uv run python -m app.run --mode mt5-demo --config config/runtime.ini --duration-
 2. **Demo account must be logged in** for MT5 demo mode
 3. **Check firewall settings** if connection fails
 
+### Tick HTTP Issues
+
+1. **No `收到 tick 事件` logs in Python**
+   - Confirm `TickRelay.mq5` is attached to the correct chart
+   - Confirm `http://127.0.0.1:8765` is in the MT5 WebRequest whitelist
+   - Confirm Python is running with `--trigger-mode tick_http`
+
+2. **TickRelay prints POST failed**
+   - Ensure Python runtime started before MT5 begins relaying ticks
+   - Ensure local port `8765` is not occupied by another process
+   - Keep the endpoint localhost-only
+
+3. **Need immediate rollback**
+   - Stop/remove TickRelay from the chart
+   - Restart Python with `--trigger-mode poll --poll-sec 2`
+
 ## Verification Commands
 
 Before committing changes, always run:
@@ -162,4 +197,7 @@ print('- MetaTrader5 is the only explicit runtime dependency in pyproject.toml')
 print('- Note: MetaTrader5 transitively installs numpy')
 print('- Forbidden libraries (pandas, pydantic, requests, loguru) are not in dependencies')
 "
+
+# 4. Emit semantic regression report with tick-mode invariants
+uv run python scripts/run_semantic_suite.py --out .sisyphus/evidence/task-7-semantic-suite.json
 ```

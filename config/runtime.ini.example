@@ -2,6 +2,13 @@
 # Runtime file outputs
 log_path = logs/runtime.log
 state_path = state/runtime_state.json
+# Trigger source: poll or tick_http
+trigger_mode = poll
+# Tick ingress host/port (localhost only)
+tick_host = 127.0.0.1
+tick_port = 8765
+# Tick ingress queue policy (fifo preserves bar-close opportunities)
+queue_policy = fifo
 
 [symbol]
 # Trading symbol

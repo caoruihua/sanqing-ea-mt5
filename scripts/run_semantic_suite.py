@@ -8,21 +8,52 @@ from pathlib import Path
 from typing import Dict
 
 SEMANTIC_CASES = {
-    "priority": "priority_conflict_semantic",
-    "closed_bar": "closed_bar_dedupe_semantic",
-    "daily_lock": "daily_lock_semantic",
-    "protection": "protection_stage_semantic",
-    "persistence": "restart_recovery_semantic",
+    "priority": {
+        "path": "tests/e2e/test_semantics_regression.py",
+        "expr": "priority_conflict_semantic",
+    },
+    "closed_bar": {
+        "path": "tests/e2e/test_semantics_regression.py",
+        "expr": "closed_bar_dedupe_semantic",
+    },
+    "daily_lock": {
+        "path": "tests/e2e/test_semantics_regression.py",
+        "expr": "daily_lock_semantic",
+    },
+    "protection": {
+        "path": "tests/e2e/test_semantics_regression.py",
+        "expr": "protection_stage_semantic",
+    },
+    "persistence": {
+        "path": "tests/e2e/test_semantics_regression.py",
+        "expr": "restart_recovery_semantic",
+    },
+    "tick_same_bar": {
+        "path": "tests/e2e/test_semantics_regression.py",
+        "expr": "tick_same_bar_dedupe_semantic",
+    },
+    "tick_reconnect": {
+        "path": "tests/e2e/test_semantics_regression.py",
+        "expr": "tick_reconnect_idempotence_semantic",
+    },
+    "tick_replay_parity": {
+        "path": "tests/integration/test_tick_replay_parity.py",
+        "expr": "legacy_vs_ingress",
+    },
+    "tick_protection": {
+        "path": "tests/integration/test_tick_burst_protection.py",
+        "expr": "same_bar_burst_skips_no_change_modify or protection_change_emits_single_modify",
+    },
 }
 
 
-def _run_case(case_name: str, test_expr: str) -> Dict[str, object]:
+def _run_case(case_name: str, path: str, test_expr: str) -> Dict[str, object]:
     cmd = [
         sys.executable,
         "-m",
         "pytest",
         "-q",
-        "tests/e2e/test_semantics_regression.py",
+        path,
         "-k",
         test_expr,
     ]
@@ -41,7 +72,10 @@ def main() -> int:
     parser.add_argument("--out", required=True, help="Path to JSON output report")
     args = parser.parse_args()
 
-    results = [_run_case(case_name, expr) for case_name, expr in SEMANTIC_CASES.items()]
+    results = [
+        _run_case(case_name, case["path"], case["expr"])
+        for case_name, case in SEMANTIC_CASES.items()
+    ]
     all_pass = all(result["status"] == "PASS" for result in results)
     report = {
         "suite": "semantic-regression",

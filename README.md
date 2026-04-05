@@ -36,9 +36,9 @@ sanqing-ea-mt5/
 │   ├── adapters/                # 交易适配层
 │   │   ├── mt5_broker.py        # MT5券商适配器
 │   │   └── sim_broker.py        # 模拟券商适配器
-│   ├── indicators/              # 技术指标
-│   │   ├── ema.py               # EMA计算
-│   │   └── atr.py               # ATR计算
+│   ├── indicators/              # 技术指标（使用 pandas-ta）
+│   │   ├── ema.py               # EMA计算（pandas-ta）
+│   │   └── atr.py               # ATR计算（pandas-ta）
 │   ├── domain/                  # 领域模型
 │   │   ├── models.py            # 数据模型
 │   │   └── constants.py         # 常量定义
@@ -61,14 +61,17 @@ sanqing-ea-mt5/
 └── README.md                    # 本文件
 ```
 
-## 2. 运行时依赖边界（重要）
+## 2. 运行时依赖
 
-**严格运行时依赖边界**：
-- **显式运行时依赖**：`MetaTrader5` 仅（官方 MT5 Python API）
-- **开发依赖**：`pytest`, `pytest-cov`, `ruff`
-- **禁止的显式依赖**：`pandas`, `pydantic`, `requests`, `loguru` 或任何其他第三方包
+**运行时依赖**：
+- `MetaTrader5` - 官方 MT5 Python API
+- `pandas` >= 2.0.0 - 数据处理
+- `pandas-ta` >= 0.3.14 - 技术指标计算
 
-**注意**：`MetaTrader5` 包会传递性安装 `numpy` 作为依赖。这是 MetaTrader5 包本身的约束，不是本项目的选择。
+**开发依赖**：
+- `pytest`, `pytest-cov`, `ruff`
+
+**注意**：`MetaTrader5` 包会传递性安装 `numpy` 作为依赖。
 
 ## 3. 快速开始
 
