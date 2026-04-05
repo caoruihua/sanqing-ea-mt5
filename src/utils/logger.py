@@ -25,9 +25,18 @@ class StructuredLogger:
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
 
     def info(self, event: str, **fields: Any) -> None:
+        self._write("INFO", event, fields)
+
+    def warning(self, event: str, **fields: Any) -> None:
+        self._write("WARNING", event, fields)
+
+    def error(self, event: str, **fields: Any) -> None:
+        self._write("ERROR", event, fields)
+
+    def _write(self, level: str, event: str, fields: Dict[str, Any]) -> None:
         payload: Dict[str, Any] = {
             "ts": datetime.now(timezone.utc).isoformat(),
-            "level": "INFO",
+            "level": level,
             "event": event,
         }
         payload.update(fields)
