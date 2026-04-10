@@ -302,7 +302,12 @@ class RuntimeState:
         for key, value in data.items():
             converted_data[key] = convert_value(key, value)
 
-        return cls(**converted_data)
+        # 过滤掉 RuntimeState 不支持的字段（向后兼容）
+        import inspect
+        valid_fields = set(inspect.signature(cls).parameters.keys())
+        filtered_data = {k: v for k, v in converted_data.items() if k in valid_fields}
+
+        return cls(**filtered_data)
 
     def to_json(self) -> str:
         """将运行时状态序列化为 JSON 字符串。"""
