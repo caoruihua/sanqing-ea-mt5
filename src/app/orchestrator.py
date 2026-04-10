@@ -76,7 +76,7 @@ class Orchestrator:
         connected = self.broker.connect()
         if not connected:
             detail = getattr(self.broker, "last_connect_error", None) or "CONNECT_FAILED"
-            self.logger.info("connect_failed", reason="CONNECT_FAILED", detail=detail)
+            self.logger.info("connect_failed", 原因="CONNECT_FAILED", 详情=detail)
             raise ConnectFailedError(f"CONNECT_FAILED: {detail}")
 
         try:
@@ -86,12 +86,12 @@ class Orchestrator:
                 symbol=self.symbol,
                 magic=self.magic,
             )
-            self.logger.info("state_loaded", day_key=self.state.day_key)
+            self.logger.info("state_loaded", 日期=self.state.day_key)
         except StateStoreNotFoundError:
             # 当状态文件不存在时，允许系统首次启动。
-            self.logger.info("state_missing", day_key=self.state.day_key)
+            self.logger.info("state_missing", 日期=self.state.day_key)
         except StateStoreCorruptedError as exc:
-            self.logger.info("state_corrupted", reason=str(exc))
+            self.logger.info("state_corrupted", 原因=str(exc))
             raise
 
     def process_snapshot(self, snapshot) -> Dict[str, Any]:
@@ -146,7 +146,7 @@ class Orchestrator:
         trace.append("persist")
         self.state_store.save(self.state)
         self.logger.info(
-            "tick_processed", success=bool(exec_result.get("success", False)), trace=trace
+            "tick_processed", 是否成功=bool(exec_result.get("success", False)), 追踪=trace
         )
 
         return {
@@ -188,8 +188,8 @@ class Orchestrator:
                 strategy = self.state.position_strategy or "unknown"
                 self.logger.info(
                     f"{strategy}_protection_unchanged",
-                    ticket=int(position["ticket"]),
-                    strategy=strategy,
+                    订单号=int(position["ticket"]),
+                    策略=strategy,
                 )
                 return
             self.broker.modify_position(
@@ -201,13 +201,13 @@ class Orchestrator:
             stage = ps.protection_stage.value if ps.protection_stage else 0
             self.logger.info(
                 f"{strategy}_protection_modified",
-                ticket=int(position["ticket"]),
-                strategy=strategy,
-                stage=stage,
-                old_sl=current_sl,
-                new_sl=decision.new_sl,
-                old_tp=current_tp,
-                new_tp=decision.new_tp,
+                订单号=int(position["ticket"]),
+                策略=strategy,
+                阶段=stage,
+                原止损=current_sl,
+                新止损=decision.new_sl,
+                原止盈=current_tp,
+                新止盈=decision.new_tp,
             )
 
     @staticmethod
@@ -251,11 +251,11 @@ class Orchestrator:
 
                     self.logger.info(
                         f"{close_reason}_position_closed",
-                        ticket=last_ticket,
-                        close_price=close_price,
-                        close_reason=close_reason,
-                        pnl=pnl,
-                        symbol=snapshot.symbol,
+                        订单号=last_ticket,
+                        平仓价=close_price,
+                        平仓原因=close_reason,
+                        盈亏=pnl,
+                        品种=snapshot.symbol,
                     )
 
             # 清除历史持仓记录

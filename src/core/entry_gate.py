@@ -107,9 +107,9 @@ class EntryGate:
             event_name = f"{strategy_name}_entry_rejected"
             self.logger.warning(
                 event_name,
-                strategy_name=strategy_name,
-                reason=reason,
-                symbol=symbol,
+                策略名称=strategy_name,
+                原因=reason,
+                品种=symbol,
             )
 
     def _is_low_volatility(self, snapshot: MarketSnapshot) -> bool:

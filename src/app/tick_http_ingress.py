@@ -38,6 +38,15 @@ class TickHttpIngress(TickIngress):
         ingress = self
 
         class _Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def _send_status(self, status: HTTPStatus) -> None:
+                self.send_response(status)
+                self.send_header("Content-Length", "0")
+                self.send_header("Connection", "close")
+                self.end_headers()
+                self.close_connection = True
+
             def do_POST(self) -> None:  # noqa: N802
                 if self.path != "/tick":
                     self.send_error(HTTPStatus.NOT_FOUND, "Unsupported path")
@@ -69,6 +78,13 @@ class TickHttpIngress(TickIngress):
                     return
 
                 with ingress._condition:
+                    is_duplicate = (
+                        payload.time_msc == ingress._last_accepted_time_msc
+                        and payload.sequence == ingress._last_accepted_sequence
+                    )
+                    if is_duplicate:
+                        self._send_status(HTTPStatus.OK)
+                        return
                     if payload.time_msc < ingress._last_accepted_time_msc:
                         self.send_error(HTTPStatus.CONFLICT, "Out-of-order payload timestamp")
                         return
@@ -86,12 +102,7 @@ class TickHttpIngress(TickIngress):
                     ingress._pending_payloads.append(payload)
                     ingress._condition.notify()
 
-                response = json.dumps({"accepted": True}).encode("utf-8")
-                self.send_response(HTTPStatus.OK)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(response)))
-                self.end_headers()
-                self.wfile.write(response)
+                self._send_status(HTTPStatus.OK)
 
             def log_message(self, format: str, *args) -> None:  # noqa: A003
                 return

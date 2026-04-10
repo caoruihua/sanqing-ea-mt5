@@ -56,10 +56,58 @@ class StrategySelector:
         winner: Optional[SignalDecision] = None
         suppressed: Dict[str, str] = {}
 
+        # 调试：记录策略选择开始（字段名使用中文便于阅读）
+        if self.logger is not None:
+            self.logger.info(
+                "strategy_select_started",
+                品种=snapshot.symbol,
+                K线时间=snapshot.last_closed_bar_time.isoformat(),
+                收盘价=snapshot.close,
+                开盘价=snapshot.open,
+                最高价=snapshot.high,
+                最低价=snapshot.low,
+                快线EMA=snapshot.ema_fast,
+                慢线EMA=snapshot.ema_slow,
+                ATR14=snapshot.atr14,
+                成交量=snapshot.volume,
+            )
+
         for strategy in self.strategies:
-            if not strategy.can_trade(snapshot, state):
+            can_trade = strategy.can_trade(snapshot, state)
+
+            # 调试：记录每个策略的 can_trade 结果
+            if self.logger is not None:
+                self.logger.info(
+                    "strategy_can_trade",
+                    策略名称=strategy.name,
+                    可交易=can_trade,
+                    品种=snapshot.symbol,
+                )
+
+            if not can_trade:
                 continue
+
             candidate = strategy.build_intent(snapshot, state)
+
+            # 调试：记录策略信号生成结果
+            if self.logger is not None:
+                if candidate is not None:
+                    self.logger.info(
+                        "strategy_signal_candidate",
+                        策略名称=strategy.name,
+                        订单类型=candidate.order_type.value,
+                        入场价=candidate.entry_price,
+                        止损=candidate.stop_loss,
+                        止盈=candidate.take_profit,
+                        品种=snapshot.symbol,
+                    )
+                else:
+                    self.logger.info(
+                        "strategy_no_signal",
+                        策略名称=strategy.name,
+                        品种=snapshot.symbol,
+                    )
+
             if candidate is None:
                 continue
 
@@ -75,28 +123,28 @@ class StrategySelector:
                 event_name = f"{winner.strategy_name}_signal_generated"
                 self.logger.info(
                     event_name,
-                    strategy_name=winner.strategy_name,
-                    order_type=winner.order_type.value,
-                    entry_price=winner.entry_price,
-                    stop_loss=winner.stop_loss,
-                    take_profit=winner.take_profit,
-                    lots=winner.lots,
-                    symbol=snapshot.symbol,
+                    策略名称=winner.strategy_name,
+                    订单类型=winner.order_type.value,
+                    入场价=winner.entry_price,
+                    止损=winner.stop_loss,
+                    止盈=winner.take_profit,
+                    手数=winner.lots,
+                    品种=snapshot.symbol,
                 )
                 # 记录被抑制的策略
                 for suppressed_strategy, reason in suppressed.items():
                     self.logger.warning(
                         "strategy_suppressed",
-                        suppressed_strategy=suppressed_strategy,
-                        winner_strategy=winner.strategy_name,
-                        reason=reason,
-                        symbol=snapshot.symbol,
+                        被抑制策略=suppressed_strategy,
+                        胜出策略=winner.strategy_name,
+                        原因=reason,
+                        品种=snapshot.symbol,
                     )
             else:
                 self.logger.info(
                     "no_signal",
-                    reason=NO_STRATEGY_SIGNAL,
-                    symbol=snapshot.symbol,
+                    原因=NO_STRATEGY_SIGNAL,
+                    品种=snapshot.symbol,
                 )
 
         if winner is None:

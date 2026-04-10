@@ -76,15 +76,34 @@ class ExpansionFollowStrategy(BaseStrategy):
         if median_body_20 <= 0 or prev3_body_max <= 0 or volume_ma_20 <= 0:
             return None
 
-        if body / snapshot.atr14 < EXPANSION_FOLLOW_BODY_ATR_MIN:
+        # 调试输出：计算各项比值
+        body_atr_ratio = body / snapshot.atr14
+        body_median_ratio = body / median_body_20
+        body_prev3_ratio = body / prev3_body_max
+        volume_ratio = snapshot.volume / volume_ma_20
+        body_range_ratio = body / range_
+
+        print(f"[ExpansionFollow DEBUG] body={body:.2f}, atr14={snapshot.atr14:.2f}")
+        print(f"[ExpansionFollow DEBUG] body/atr={body_atr_ratio:.2f} (need >= {EXPANSION_FOLLOW_BODY_ATR_MIN})")
+        print(f"[ExpansionFollow DEBUG] body/median={body_median_ratio:.2f} (need >= {EXPANSION_FOLLOW_BODY_MEDIAN_RATIO_MIN})")
+        print(f"[ExpansionFollow DEBUG] body/prev3={body_prev3_ratio:.2f} (need >= {EXPANSION_FOLLOW_BODY_PREV3_MAX_RATIO_MIN})")
+        print(f"[ExpansionFollow DEBUG] volume/ma={volume_ratio:.2f} (need >= {EXPANSION_FOLLOW_VOLUME_MA_RATIO_MIN})")
+        print(f"[ExpansionFollow DEBUG] body/range={body_range_ratio:.2f} (need >= {EXPANSION_FOLLOW_BODY_RANGE_RATIO_MIN})")
+
+        if body_atr_ratio < EXPANSION_FOLLOW_BODY_ATR_MIN:
+            print(f"[ExpansionFollow DEBUG] FAILED: body/atr {body_atr_ratio:.2f} < {EXPANSION_FOLLOW_BODY_ATR_MIN}")
             return None
-        if body / median_body_20 < EXPANSION_FOLLOW_BODY_MEDIAN_RATIO_MIN:
+        if body_median_ratio < EXPANSION_FOLLOW_BODY_MEDIAN_RATIO_MIN:
+            print(f"[ExpansionFollow DEBUG] FAILED: body/median {body_median_ratio:.2f} < {EXPANSION_FOLLOW_BODY_MEDIAN_RATIO_MIN}")
             return None
-        if body / prev3_body_max < EXPANSION_FOLLOW_BODY_PREV3_MAX_RATIO_MIN:
+        if body_prev3_ratio < EXPANSION_FOLLOW_BODY_PREV3_MAX_RATIO_MIN:
+            print(f"[ExpansionFollow DEBUG] FAILED: body/prev3 {body_prev3_ratio:.2f} < {EXPANSION_FOLLOW_BODY_PREV3_MAX_RATIO_MIN}")
             return None
-        if snapshot.volume / volume_ma_20 < EXPANSION_FOLLOW_VOLUME_MA_RATIO_MIN:
+        if volume_ratio < EXPANSION_FOLLOW_VOLUME_MA_RATIO_MIN:
+            print(f"[ExpansionFollow DEBUG] FAILED: volume ratio {volume_ratio:.2f} < {EXPANSION_FOLLOW_VOLUME_MA_RATIO_MIN}")
             return None
-        if body / range_ < EXPANSION_FOLLOW_BODY_RANGE_RATIO_MIN:
+        if body_range_ratio < EXPANSION_FOLLOW_BODY_RANGE_RATIO_MIN:
+            print(f"[ExpansionFollow DEBUG] FAILED: body/range {body_range_ratio:.2f} < {EXPANSION_FOLLOW_BODY_RANGE_RATIO_MIN}")
             return None
 
         lower_shadow = min(snapshot.open, snapshot.close) - snapshot.low

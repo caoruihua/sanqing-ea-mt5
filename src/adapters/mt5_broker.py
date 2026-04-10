@@ -182,7 +182,42 @@ class MT5BrokerAdapter(BrokerAdapter):
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": mt5.ORDER_FILLING_IOC,
         }
+
+        # 记录发送的请求
+        if self.logger is not None:
+            self.logger.info(
+                "mt5_order_send_request",
+                品种=symbol,
+                订单类型=order_type,
+                手数=volume,
+                价格=price,
+                止损=sl,
+                止盈=tp,
+                魔术号=magic,
+                备注=comment,
+            )
+
         result = mt5.order_send(request)
+
+        # 记录原始结果
+        if self.logger is not None:
+            if result is None:
+                self.logger.error(
+                    "mt5_order_send_no_result",
+                    品种=symbol,
+                    订单类型=order_type,
+                    最后错误=mt5.last_error() if mt5 else None,
+                )
+            else:
+                self.logger.info(
+                    "mt5_order_send_response",
+                    品种=symbol,
+                    返回码=result.retcode,
+                    订单号=getattr(result, "order", None),
+                    成交量=getattr(result, "volume", None),
+                    成交价=getattr(result, "price", None),
+                )
+
         if result is None:
             return {"success": False, "reason": "NO_RESULT", "retryable": True}
 
@@ -257,11 +292,11 @@ class MT5BrokerAdapter(BrokerAdapter):
             pnl = float(getattr(pos, "profit", 0.0))
             self.logger.info(
                 f"{close_reason}_position_closed",
-                ticket=ticket,
-                close_price=close_price,
-                close_reason=close_reason,
-                pnl=pnl,
-                symbol=pos.symbol,
+                订单号=ticket,
+                平仓价=close_price,
+                平仓原因=close_reason,
+                盈亏=pnl,
+                品种=pos.symbol,
             )
 
         return {

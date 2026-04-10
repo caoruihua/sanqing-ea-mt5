@@ -43,6 +43,44 @@ class ExecutionEngine:
         self.logger = logger
         self._submitted_action_ids: Set[str] = set()
 
+    def _validate_order_params(self, intent: TradeIntent) -> Optional[str]:
+        """验证订单参数有效性。
+
+        Returns:
+            错误信息，如果验证通过返回 None
+        """
+        signal = intent.signal_decision
+
+        # 价格检查
+        if signal.entry_price <= 0:
+            return f"Invalid entry_price: {signal.entry_price}"
+
+        # 止损检查
+        if signal.stop_loss <= 0:
+            return f"Invalid stop_loss: {signal.stop_loss}"
+
+        # 止盈检查
+        if signal.take_profit <= 0:
+            return f"Invalid take_profit: {signal.take_profit}"
+
+        # 手数检查
+        if signal.lots <= 0:
+            return f"Invalid lots: {signal.lots}"
+
+        # 多空方向与止损止盈逻辑检查
+        if signal.order_type.value == "BUY":
+            if signal.stop_loss >= signal.entry_price:
+                return f"BUY stop_loss ({signal.stop_loss}) must be below entry ({signal.entry_price})"
+            if signal.take_profit <= signal.entry_price:
+                return f"BUY take_profit ({signal.take_profit}) must be above entry ({signal.entry_price})"
+        else:  # SELL
+            if signal.stop_loss <= signal.entry_price:
+                return f"SELL stop_loss ({signal.stop_loss}) must be above entry ({signal.entry_price})"
+            if signal.take_profit >= signal.entry_price:
+                return f"SELL take_profit ({signal.take_profit}) must be below entry ({signal.entry_price})"
+
+        return None
+
     def _get_current_price(self, symbol: str, order_type: str) -> float:
         """获取当前市场价格用于重试下单。
 
@@ -65,13 +103,61 @@ class ExecutionEngine:
             return 0.0
 
     def submit(self, intent: TradeIntent, state: RuntimeState) -> Dict[str, object]:
+        snapshot = intent.market_snapshot
+        strategy_name = intent.signal_decision.strategy_name
+        order_type = intent.signal_decision.order_type.value
+
+        # 1. 幂等检查
         if intent.action_id in self._submitted_action_ids:
+            if self.logger is not None:
+                self.logger.warning(
+                    "order_duplicate_blocked",
+                    策略名称=strategy_name,
+                    动作ID=intent.action_id,
+                )
             raise DuplicateActionError(f"action_id '{intent.action_id}' already submitted")
 
-        snapshot = intent.market_snapshot
+        # 2. 持仓检查
         existing_position = self.broker.get_position(snapshot.symbol, snapshot.magic_number)
         if existing_position is not None:
+            if self.logger is not None:
+                self.logger.warning(
+                    "order_blocked_existing_position",
+                    策略名称=strategy_name,
+                    品种=snapshot.symbol,
+                    现有持仓单号=int(existing_position.get("ticket", 0)),
+                )
             return {"success": False, "reason": "EXISTING_POSITION"}
+
+        # 3. 订单参数预检查
+        validation_error = self._validate_order_params(intent)
+        if validation_error:
+            if self.logger is not None:
+                self.logger.error(
+                    "order_validation_failed",
+                    策略名称=strategy_name,
+                    品种=snapshot.symbol,
+                    错误信息=validation_error,
+                    入场价=intent.signal_decision.entry_price,
+                    止损=intent.signal_decision.stop_loss,
+                    止盈=intent.signal_decision.take_profit,
+                )
+            return {"success": False, "reason": f"VALIDATION_FAILED: {validation_error}"}
+
+        # 4. 记录下单尝试开始
+        if self.logger is not None:
+            self.logger.info(
+                "order_submit_started",
+                策略名称=strategy_name,
+                品种=snapshot.symbol,
+                订单类型=order_type,
+                入场价=intent.signal_decision.entry_price,
+                手数=intent.signal_decision.lots,
+                止损=intent.signal_decision.stop_loss,
+                止盈=intent.signal_decision.take_profit,
+                动作ID=intent.action_id,
+                最大重试次数=self.max_retries,
+            )
 
         last_error_reason = "UNKNOWN"
         for attempt in range(self.max_retries):
@@ -80,23 +166,63 @@ class ExecutionEngine:
                 entry_price = intent.signal_decision.entry_price
             else:
                 entry_price = self._get_current_price(
-                    snapshot.symbol, intent.signal_decision.order_type.value
+                    snapshot.symbol, order_type
                 )
                 # 如果获取价格失败，使用原价格
                 if entry_price <= 0:
                     entry_price = intent.signal_decision.entry_price
+                    if self.logger is not None:
+                        self.logger.warning(
+                            "order_price_refresh_failed",
+                            策略名称=strategy_name,
+                            尝试次数=attempt,
+                            回退价格=entry_price,
+                        )
+                else:
+                    if self.logger is not None:
+                        self.logger.info(
+                            "order_price_refreshed",
+                            策略名称=strategy_name,
+                            尝试次数=attempt,
+                            新价格=entry_price,
+                            原价格=intent.signal_decision.entry_price,
+                        )
+
+            # 记录每次尝试
+            if self.logger is not None:
+                self.logger.info(
+                    "order_attempt",
+                    策略名称=strategy_name,
+                    尝试次数=attempt + 1,
+                    最大重试次数=self.max_retries,
+                    入场价=entry_price,
+                    订单类型=order_type,
+                )
 
             result = self.broker.send_order(
                 symbol=snapshot.symbol,
                 magic=snapshot.magic_number,
-                order_type=intent.signal_decision.order_type.value,
+                order_type=order_type,
                 volume=intent.signal_decision.lots,
                 price=entry_price,
                 sl=intent.signal_decision.stop_loss,
                 tp=intent.signal_decision.take_profit,
                 slippage=intent.slippage if intent.slippage is not None else DEFAULT_SLIPPAGE,
-                comment=intent.comment,
+                comment=intent.comment or f"{strategy_name}|{intent.action_id[:8]}",
             )
+
+            # 记录MT5返回结果
+            if self.logger is not None:
+                self.logger.info(
+                    "order_attempt_result",
+                    策略名称=strategy_name,
+                    尝试次数=attempt + 1,
+                    是否成功=result.get("success"),
+                    返回码=result.get("retcode"),
+                    原因=result.get("reason"),
+                    可重试=result.get("retryable"),
+                    订单号=result.get("ticket"),
+                )
 
             if bool(result.get("success", False)):
                 self._submitted_action_ids.add(intent.action_id)
@@ -111,17 +237,17 @@ class ExecutionEngine:
                     event_name = f"{strategy_name}_order_filled"
                     self.logger.info(
                         event_name,
-                        strategy_name=strategy_name,
-                        symbol=snapshot.symbol,
-                        order_type=intent.signal_decision.order_type.value,
-                        entry_price=entry_price,
-                        original_price=intent.signal_decision.entry_price,
-                        lots=intent.signal_decision.lots,
-                        stop_loss=intent.signal_decision.stop_loss,
-                        take_profit=intent.signal_decision.take_profit,
-                        ticket=ticket,
-                        action_id=intent.action_id,
-                        retry_count=attempt,
+                        策略名称=strategy_name,
+                        品种=snapshot.symbol,
+                        订单类型=intent.signal_decision.order_type.value,
+                        入场价=entry_price,
+                        原价格=intent.signal_decision.entry_price,
+                        手数=intent.signal_decision.lots,
+                        止损=intent.signal_decision.stop_loss,
+                        止盈=intent.signal_decision.take_profit,
+                        订单号=ticket,
+                        动作ID=intent.action_id,
+                        重试次数=attempt,
                     )
                 return result
 
@@ -132,13 +258,13 @@ class ExecutionEngine:
                     strategy_name = intent.signal_decision.strategy_name
                     self.logger.error(
                         "order_rejected",
-                        strategy_name=strategy_name,
-                        symbol=snapshot.symbol,
-                        order_type=intent.signal_decision.order_type.value,
-                        attempted_price=entry_price,
-                        reason=last_error_reason,
-                        retryable=False,
-                        action_id=intent.action_id,
+                        策略名称=strategy_name,
+                        品种=snapshot.symbol,
+                        订单类型=intent.signal_decision.order_type.value,
+                        尝试价格=entry_price,
+                        原因=last_error_reason,
+                        可重试=False,
+                        动作ID=intent.action_id,
                     )
                 return result
 
@@ -147,12 +273,12 @@ class ExecutionEngine:
             strategy_name = intent.signal_decision.strategy_name
             self.logger.error(
                 "order_retry_exhausted",
-                strategy_name=strategy_name,
-                symbol=snapshot.symbol,
-                order_type=intent.signal_decision.order_type.value,
-                reason=last_error_reason,
-                max_retries=self.max_retries,
-                action_id=intent.action_id,
+                策略名称=strategy_name,
+                品种=snapshot.symbol,
+                订单类型=intent.signal_decision.order_type.value,
+                原因=last_error_reason,
+                最大重试次数=self.max_retries,
+                动作ID=intent.action_id,
             )
         raise RetryExhaustedError(
             f"Order retry exhausted for action_id '{intent.action_id}': {last_error_reason}"
