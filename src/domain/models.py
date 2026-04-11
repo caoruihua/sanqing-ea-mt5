@@ -77,12 +77,24 @@ class MarketSnapshot:
     low_prev2: Optional[float] = None  # 2 根前的最低价
     low_prev3: Optional[float] = None  # 3 根前的最低价
 
+    # 反转策略形态识别所需的历史K线数据
+    prev_open: Optional[float] = None  # 前一根K线开盘价
+    prev_close: Optional[float] = None  # 前一根K线收盘价
+    prev_high: Optional[float] = None  # 前一根K线最高价
+    prev_low: Optional[float] = None  # 前一根K线最低价
+    high_3: Optional[float] = None  # 最近3根K线最高价
+    low_3: Optional[float] = None  # 最近3根K线最低价
+
     # 策略模块扩展指标（任务 4+）
     median_body_20: Optional[float] = None
     prev3_body_max: Optional[float] = None
     volume_ma_20: Optional[float] = None
     high_20: Optional[float] = None
     low_20: Optional[float] = None
+
+    # 趋势/震荡过滤指标
+    adx14: Optional[float] = None  # ADX(14) 趋势强度
+    channel_width_ratio: Optional[float] = None  # 20日通道宽度 / ATR14
 
     def __post_init__(self):
         """校验市场快照。"""

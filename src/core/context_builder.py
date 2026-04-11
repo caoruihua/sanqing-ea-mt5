@@ -26,6 +26,7 @@ from src.domain.constants import (
     DEFAULT_TIMEFRAME,
 )
 from src.domain.models import MarketSnapshot
+from src.indicators.adx import calculate_adx
 from src.indicators.atr import calculate_atr
 from src.indicators.ema import calculate_emas
 
@@ -159,12 +160,24 @@ class ContextBuilder:
         low_prev2 = self._get_prev_value(lows, 2)
         low_prev3 = self._get_prev_value(lows, 3)
 
+        # 为反转策略补充历史K线数据
+        prev_open = self._get_prev_value(opens, 1)
+        prev_close = self._get_prev_value(closes, 1)
+        prev_high = self._get_prev_value(highs, 1)
+        prev_low = self._get_prev_value(lows, 1)
+        high_3 = self._calculate_high_3(highs)
+        low_3 = self._calculate_low_3(lows)
+
         # 为 ExpansionFollow 等策略补充扩展统计字段。
         median_body_20 = self._calculate_median_body_20(opens, closes)
         prev3_body_max = self._calculate_prev3_body_max(opens, closes)
         volume_ma_20 = self._calculate_volume_ma_20(volumes)
         high_20 = self._calculate_high_20(highs)
         low_20 = self._calculate_low_20(lows)
+
+        # 计算趋势/震荡过滤指标。
+        adx14 = self._calculate_adx_safe(highs, lows, closes)
+        channel_width_ratio = self._calculate_channel_width_ratio(high_20, low_20, atr14)
 
         # 组装市场快照对象。
         snapshot = MarketSnapshot(
@@ -190,11 +203,19 @@ class ContextBuilder:
             high_prev3=high_prev3,
             low_prev2=low_prev2,
             low_prev3=low_prev3,
+            prev_open=prev_open,
+            prev_close=prev_close,
+            prev_high=prev_high,
+            prev_low=prev_low,
+            high_3=high_3,
+            low_3=low_3,
             median_body_20=median_body_20,
             prev3_body_max=prev3_body_max,
             volume_ma_20=volume_ma_20,
             high_20=high_20,
             low_20=low_20,
+            adx14=adx14,
+            channel_width_ratio=channel_width_ratio,
         )
 
         return snapshot
@@ -236,6 +257,33 @@ class ContextBuilder:
             raise
         return atr
 
+    def _calculate_adx_safe(
+        self, highs: List[float], lows: List[float], closes: List[float]
+    ) -> Optional[float]:
+        """计算ADX(14)，数据不足时返回None而非抛异常。"""
+        try:
+            return calculate_adx(highs=highs, lows=lows, closes=closes, period=14)
+        except ValueError:
+            return None
+
+    def _calculate_channel_width_ratio(
+        self, high_20: Optional[float], low_20: Optional[float], atr14: float
+    ) -> Optional[float]:
+        """计算20日通道宽度相对于ATR的倍数。
+
+        公式: (high_20 - low_20) / atr14
+        返回值:
+            - < 3: 窄幅整理
+            - 3-5: 正常趋势波动
+            - > 5: 宽幅震荡（假突破风险高）
+        """
+        if high_20 is None or low_20 is None or atr14 <= 0:
+            return None
+        channel_width = high_20 - low_20
+        if channel_width <= 0:
+            return None
+        return channel_width / atr14
+
     def _get_ema_prev_value(
         self, closes: List[float], period: int, bars_back: int
     ) -> Optional[float]:
@@ -264,7 +312,7 @@ class ContextBuilder:
 
         如果历史数据不足，则返回 `None`。
         """
-        if len(values) < bars_back:
+        if len(values) <= bars_back:
             return None
         return values[-(bars_back + 1)]  # -1 表示最后一根，额外偏移 `bars_back`
 
@@ -300,6 +348,18 @@ class ContextBuilder:
         if len(lows) < 21:
             return None
         return min(lows[-21:-1])
+
+    def _calculate_high_3(self, highs: List[float]) -> Optional[float]:
+        """计算当前 bar 之前 3 根 K 线的最高点。"""
+        if len(highs) < 4:
+            return None
+        return max(highs[-4:-1])  # 获取索引 -4, -3, -2 的最高值（排除当前 bar -1）
+
+    def _calculate_low_3(self, lows: List[float]) -> Optional[float]:
+        """计算当前 bar 之前 3 根 K 线的最低点。"""
+        if len(lows) < 4:
+            return None
+        return min(lows[-4:-1])  # 获取索引 -4, -3, -2 的最低值（排除当前 bar -1）
 
 
 def create_market_snapshot(

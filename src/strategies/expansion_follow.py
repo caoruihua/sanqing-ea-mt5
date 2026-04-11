@@ -37,16 +37,40 @@ class ExpansionFollowStrategy(BaseStrategy):
     def name(self) -> str:
         return "ExpansionFollow"
 
+    # 趋势/震荡过滤阈值
+    ADX_THRESHOLD = 25.0  # ADX > 25 才认为是趋势
+    CHANNEL_WIDTH_MAX = 5.0  # 通道宽度 > 5倍ATR认为是宽幅震荡
+
     def can_trade(self, snapshot: MarketSnapshot, state: RuntimeState) -> bool:
         _ = state
-        return (
+        # 基础数据检查
+        if not (
             snapshot.atr14 > 0
             and snapshot.median_body_20 is not None
             and snapshot.prev3_body_max is not None
             and snapshot.volume_ma_20 is not None
             and snapshot.high_20 is not None
             and snapshot.low_20 is not None
-        )
+        ):
+            return False
+
+        # 趋势强度过滤：ADX必须足够高
+        if snapshot.adx14 is None or snapshot.adx14 < self.ADX_THRESHOLD:
+            print(f"[ExpansionFollow] 过滤: ADX={snapshot.adx14} < {self.ADX_THRESHOLD}")
+            return False
+
+        # 震荡过滤：通道不能太宽
+        if (
+            snapshot.channel_width_ratio is not None
+            and snapshot.channel_width_ratio > self.CHANNEL_WIDTH_MAX
+        ):
+            print(
+                f"[ExpansionFollow] 过滤: 通道宽度={snapshot.channel_width_ratio:.2f} > "
+                f"{self.CHANNEL_WIDTH_MAX} (宽幅震荡)"
+            )
+            return False
+
+        return True
 
     def build_intent(
         self, snapshot: MarketSnapshot, state: RuntimeState

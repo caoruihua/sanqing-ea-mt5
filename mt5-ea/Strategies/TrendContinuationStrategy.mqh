@@ -5,18 +5,45 @@
 #property copyright "Sanqing EA MT5"
 #property strict
 
-#include "Common.mqh"
+#include "../Main/Common.mqh"
+
+//+------------------------------------------------------------------+
+//| Trend/Chop Filter Thresholds                                      |
+//+------------------------------------------------------------------+
+#define TREND_CONTINUATION_ADX_THRESHOLD       25.0   // ADX > 25 = trend
+#define TREND_CONTINUATION_CHANNEL_WIDTH_MAX   5.0    // > 5 = wide chop
 
 //+------------------------------------------------------------------+
 //| Check if Strategy Can Trade                                       |
 //+------------------------------------------------------------------+
 bool TrendContinuationCanTrade(SMarketSnapshot &snapshot)
 {
-   return snapshot.atr14 > 0 &&
-          snapshot.highPrev2 > 0 &&
-          snapshot.highPrev3 > 0 &&
-          snapshot.lowPrev2 > 0 &&
-          snapshot.lowPrev3 > 0;
+   // Basic data check - relaxed to only need current bar high/low
+   if(!(snapshot.atr14 > 0 &&
+        snapshot.high > 0 &&
+        snapshot.low > 0))
+   {
+      LogDebug("TrendContinuation cannot trade: basic data check failed");
+      return false;
+   }
+
+   // ADX filter: must be in trend (ADX > 25)
+   if(snapshot.adx14 < TREND_CONTINUATION_ADX_THRESHOLD)
+   {
+      LogDebug("TrendContinuation filtered: ADX=" + DoubleToString(snapshot.adx14, 2) +
+               " < threshold=" + DoubleToString(TREND_CONTINUATION_ADX_THRESHOLD, 2));
+      return false;
+   }
+
+   // Channel width filter: avoid wide chop (width < 5x ATR)
+   if(snapshot.channelWidthRatio > TREND_CONTINUATION_CHANNEL_WIDTH_MAX)
+   {
+      LogDebug("TrendContinuation filtered: ChannelWidth=" + DoubleToString(snapshot.channelWidthRatio, 2) +
+               " > max=" + DoubleToString(TREND_CONTINUATION_CHANNEL_WIDTH_MAX, 2));
+      return false;
+   }
+
+   return true;
 }
 
 //+------------------------------------------------------------------+
@@ -33,11 +60,11 @@ bool BuildTrendContinuationSignal(SMarketSnapshot &snapshot, SSignalDecision &si
    if(body < TREND_CONTINUATION_ATR_MULTIPLIER_BODY * snapshot.atr14)
       return false;
    
-   // Calculate breakout levels
+   // Calculate breakout levels based on previous 2 bars' high/low (not current bar)
    double breakoutBuffer = TREND_CONTINUATION_ATR_MULTIPLIER_BREAKOUT * snapshot.atr14;
-   double upperBreakout = MathMax(snapshot.highPrev2, snapshot.highPrev3) + breakoutBuffer;
-   double lowerBreakout = MathMin(snapshot.lowPrev2, snapshot.lowPrev3) - breakoutBuffer;
-   
+   double upperBreakout = snapshot.highPrev2 + breakoutBuffer;  // Break above previous bars high
+   double lowerBreakout = snapshot.lowPrev2 - breakoutBuffer;   // Break below previous bars low
+
    // Check for bullish breakout continuation
    if(snapshot.emaFast > snapshot.emaSlow &&          // Uptrend
       snapshot.close >= upperBreakout)                // Breakout above resistance

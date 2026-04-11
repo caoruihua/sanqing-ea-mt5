@@ -70,15 +70,6 @@
 // State File
 #define STATE_FILE_NAME            "sanqing_ea_state.json"
 
-//+------------------------------------------------------------------+
-//| Enums                                                            |
-//+------------------------------------------------------------------+
-enum ENUM_ORDER_TYPE
-{
-   ORDER_TYPE_BUY = 0,
-   ORDER_TYPE_SELL = 1
-};
-
 enum ENUM_PROTECTION_STAGE
 {
    PROTECTION_NONE = 0,
@@ -133,13 +124,25 @@ struct SMarketSnapshot
    double     highPrev3;              // High 3 bars ago
    double     lowPrev2;               // Low 2 bars ago
    double     lowPrev3;               // Low 3 bars ago
-   
+
+   // Reversal strategy fields
+   double     prevOpen;               // Previous bar open
+   double     prevClose;              // Previous bar close
+   double     prevHigh;               // Previous bar high
+   double     prevLow;                // Previous bar low
+   double     high3;                  // High of last 3 bars (excluding current)
+   double     low3;                   // Low of last 3 bars (excluding current)
+
    // ExpansionFollow extended fields
    double     medianBody20;           // Median body of last 20 bars
    double     prev3BodyMax;            // Max body of last 3 bars
    double     volumeMA20;             // Volume MA of last 20 bars
    double     high20;                 // High of last 20 bars
    double     low20;                  // Low of last 20 bars
+
+   // Trend/Chop filtering fields
+   double     adx14;                  // ADX(14) trend strength
+   double     channelWidthRatio;      // (high20 - low20) / atr14
 };
 
 //+------------------------------------------------------------------+

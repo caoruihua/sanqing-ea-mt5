@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git branch:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(ls:*)",
+      "Bash(uv pip install:*)",
+      "Bash(uv run python -m pytest:*)"
+    ]
+  }
+}

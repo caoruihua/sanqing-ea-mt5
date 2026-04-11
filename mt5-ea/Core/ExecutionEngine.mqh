@@ -5,7 +5,7 @@
 #property copyright "Sanqing EA MT5"
 #property strict
 
-#include "Common.mqh"
+#include "../Main/Common.mqh"
 
 //+------------------------------------------------------------------+
 //| Execution Result                                                 |
@@ -98,12 +98,13 @@ SExecutionResult SendOrder(STradeIntent &intent, SMarketSnapshot &snapshot)
       request.symbol = g_symbol;
       request.volume = intent.signal.lots;
       request.price = NormalizePrice(entryPrice);
-      request.sl = intent.signal.stopLoss;
-      request.tp = intent.signal.takeProfit;
+      request.sl = NormalizePrice(intent.signal.stopLoss);
+      request.tp = NormalizePrice(intent.signal.takeProfit);
       request.deviation = slippage;
       request.magic = InpMagicNumber;
       request.comment = intent.comment;
-      request.type_filling = ORDER_FILLING_FOK;
+      // Use IOC filling mode for better compatibility in backtesting
+      request.type_filling = ORDER_FILLING_IOC;
       
       if(intent.signal.orderType == ORDER_TYPE_BUY)
       {
@@ -204,20 +205,19 @@ bool ClosePosition(int ticket)
 {
    if(!PositionSelectByTicket(ticket))
       return false;
-   
-   double closePrice;
-   ENUM_ORDER_TYPE posType = (ENUM_ORDER_TYPE)PositionGetInteger(POSITION_TYPE);
-   
+
+   ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+
    MqlTradeRequest request = {};
    MqlTradeResult result = {};
-   
+
    request.action = TRADE_ACTION_DEAL;
    request.position = ticket;
    request.symbol = g_symbol;
    request.volume = PositionGetDouble(POSITION_VOLUME);
    request.magic = InpMagicNumber;
-   request.type_filling = ORDER_FILLING_FOK;
-   
+   request.type_filling = ORDER_FILLING_IOC;
+
    if(posType == POSITION_TYPE_BUY)
    {
       request.type = ORDER_TYPE_SELL;

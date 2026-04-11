@@ -5,7 +5,7 @@
 #property copyright "Sanqing EA MT5"
 #property strict
 
-#include "Common.mqh"
+#include "../Main/Common.mqh"
 #include "Indicators.mqh"
 
 //+------------------------------------------------------------------+
@@ -18,7 +18,7 @@ bool CopyRatesToArrays(string symbol, int timeframe, int count,
    MqlRates rates[];
    ArraySetAsSeries(rates, true);
    
-   int copied = CopyRates(symbol, timeframe, 0, count, rates);
+   int copied = CopyRates(symbol, (ENUM_TIMEFRAMES)timeframe, 0, count, rates);
    if(copied <= 0)
    {
       LogError("Failed to copy rates, error: " + (string)GetLastError());
@@ -68,7 +68,7 @@ datetime GetLastClosedBarTime(string symbol, int timeframe)
    MqlRates rates[];
    ArraySetAsSeries(rates, true);
    
-   if(CopyRates(symbol, timeframe, 0, 2, rates) < 2)
+   if(CopyRates(symbol, (ENUM_TIMEFRAMES)timeframe, 0, 2, rates) < 2)
       return 0;
       
    return rates[1].time;  // Index 1 is the last closed bar
@@ -81,7 +81,7 @@ bool BuildMarketSnapshot(SMarketSnapshot &snapshot)
 {
    // Initialize with input parameters
    snapshot.symbol = g_symbol;
-   snapshot.timeframe = InpEmaFastPeriod; // Store as int for MQL5 compatibility
+   snapshot.timeframe = Period();
    snapshot.digits = g_digits;
    snapshot.magicNumber = InpMagicNumber;
    
@@ -127,17 +127,33 @@ bool BuildMarketSnapshot(SMarketSnapshot &snapshot)
    snapshot.highPrev3 = highs[4];
    snapshot.lowPrev2 = lows[3];
    snapshot.lowPrev3 = lows[4];
-   
+
+   // Reversal strategy fields (previous bar data)
+   snapshot.prevOpen = opens[2];
+   snapshot.prevClose = closes[2];
+   snapshot.prevHigh = highs[2];
+   snapshot.prevLow = lows[2];
+
+   // High/Low of last 3 bars (indices 2,3,4 - excluding current 0,1)
+   snapshot.high3 = MathMax(highs[2], MathMax(highs[3], highs[4]));
+   snapshot.low3 = MathMin(lows[2], MathMin(lows[3], lows[4]));
+
    // ExpansionFollow extended fields
    snapshot.medianBody20 = CalculateMedianBody20(opens, closes);
    snapshot.prev3BodyMax = CalculatePrev3BodyMax(opens, closes);
    snapshot.volumeMA20 = CalculateVolumeMA20(volumes);
    snapshot.high20 = CalculateHigh20(highs);
    snapshot.low20 = CalculateLow20(lows);
-   
-   LogDebug("Snapshot built: EMA_F=" + DoubleToString(snapshot.emaFast, g_digits) + 
+
+   // Trend/Chop filtering fields
+   snapshot.adx14 = CalculateADX(g_symbol, PERIOD_CURRENT, 14, 1);
+   snapshot.channelWidthRatio = CalculateChannelWidthRatio(snapshot.high20, snapshot.low20, snapshot.atr14);
+
+   LogDebug("Snapshot built: EMA_F=" + DoubleToString(snapshot.emaFast, g_digits) +
             " EMA_S=" + DoubleToString(snapshot.emaSlow, g_digits) +
-            " ATR=" + DoubleToString(snapshot.atr14, g_digits));
+            " ATR=" + DoubleToString(snapshot.atr14, g_digits) +
+            " ADX=" + DoubleToString(snapshot.adx14, 2) +
+            " CH_WR=" + DoubleToString(snapshot.channelWidthRatio, 2));
    
    return true;
 }

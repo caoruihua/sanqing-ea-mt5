@@ -20,6 +20,7 @@ from src.domain.models import MarketSnapshot, RuntimeState, SignalDecision
 from src.strategies.base import BaseStrategy
 from src.strategies.expansion_follow import ExpansionFollowStrategy
 from src.strategies.pullback import PullbackStrategy
+from src.strategies.reversal import ReversalStrategy
 from src.strategies.trend_continuation import TrendContinuationStrategy
 from src.utils.logger import StructuredLogger
 
@@ -47,6 +48,7 @@ class StrategySelector:
     ) -> None:
         self.strategies = strategies or [
             ExpansionFollowStrategy(fixed_lots=fixed_lots),
+            ReversalStrategy(fixed_lots=fixed_lots),
             PullbackStrategy(fixed_lots=fixed_lots),
             TrendContinuationStrategy(fixed_lots=fixed_lots),
         ]

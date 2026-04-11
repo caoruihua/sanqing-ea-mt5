@@ -7,16 +7,23 @@
 #property version   "1.00"
 #property strict
 
-// Include all modules
-#include "Include/Common.mqh"
-#include "Include/Indicators.mqh"
-#include "Include/ContextBuilder.mqh"
-#include "Include/DailyRiskController.mqh"
-#include "Include/ProtectionEngine.mqh"
-#include "Include/StrategySelector.mqh"
-#include "Include/EntryGate.mqh"
-#include "Include/ExecutionEngine.mqh"
-#include "Include/StateStore.mqh"
+// Include main common definitions
+#include "Common.mqh"
+
+// Include Core modules
+#include "../Core/Indicators.mqh"
+#include "../Core/ContextBuilder.mqh"
+#include "../Core/DailyRiskController.mqh"
+#include "../Core/ProtectionEngine.mqh"
+#include "../Core/EntryGate.mqh"
+#include "../Core/ExecutionEngine.mqh"
+#include "../Core/StateStore.mqh"
+
+// Include Strategy implementations
+#include "../Strategies/ExpansionFollowStrategy.mqh"
+#include "../Strategies/PullbackStrategy.mqh"
+#include "../Strategies/TrendContinuationStrategy.mqh"
+#include "../Strategies/ReversalStrategy.mqh"
 
 //+------------------------------------------------------------------+
 //| Global State                                                     |
@@ -141,6 +148,11 @@ void OnTick()
       // Same bar, skip signal generation
       return;
    }
+
+   // Log state for debugging
+   LogDetailed("State check - tradesToday=" + IntegerToString(g_runtimeState.tradesToday) +
+               " dailyLocked=" + (g_runtimeState.dailyLocked ? "true" : "false") +
+               " positionTicket=" + IntegerToString(g_runtimeState.positionTicket));
    
    // Update last processed bar time
    g_runtimeState.lastProcessedBarTime = snapshot.lastClosedBarTime;
@@ -190,7 +202,10 @@ void OnTick()
    g_runtimeState.protectionStage = PROTECTION_NONE;
    g_runtimeState.stage1ActivatedAt = 0;
    g_runtimeState.stage2ActivatedAt = 0;
-   
+
+   // Increment trades today count
+   g_runtimeState.tradesToday++;
+
    // 10. Save state
    SaveState(g_runtimeState);
    
@@ -247,7 +262,7 @@ void ReconcileState()
          {
             g_runtimeState.entryPrice = PositionGetDouble(POSITION_PRICE_OPEN);
             // Set a default ATR for protection (will be updated on next tick)
-            g_runtimeState.entryAtr = iATR(g_symbol, PERIOD_CURRENT, InpAtrPeriod, 0);
+            g_runtimeState.entryAtr = iATR(g_symbol, PERIOD_CURRENT, InpAtrPeriod);
             g_runtimeState.highestCloseSinceEntry = g_runtimeState.entryPrice;
             g_runtimeState.lowestCloseSinceEntry = g_runtimeState.entryPrice;
          }
@@ -378,4 +393,118 @@ void OnChartEvent(const int id,
                   const string &sparam)
 {
    // Can be used for UI interactions
+}
+
+//+------------------------------------------------------------------+
+//| STRATEGY SELECTOR - Integrated into Main                          |
+//+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
+//| Strategy Selection Result                                         |
+//+------------------------------------------------------------------+
+struct SStrategySelectionResult
+{
+   bool        hasSignal;              // Has valid signal
+   SSignalDecision signal;            // The selected signal
+   ENUM_REJECTION_REASON rejectionReason;  // Rejection reason if no signal
+   string      suppressedStrategies[]; // Strategies that were suppressed
+};
+
+//+------------------------------------------------------------------+
+//| Select Best Strategy by Priority                                  |
+//+------------------------------------------------------------------+
+SStrategySelectionResult SelectStrategy(SMarketSnapshot &snapshot)
+{
+   SStrategySelectionResult result;
+   result.hasSignal = false;
+   result.rejectionReason = REJECT_NONE;
+
+   // Array to track suppressed strategies
+   string suppressed[];
+
+   // Priority 1: ExpansionFollow
+   if(ExpansionFollowCanTrade(snapshot))
+   {
+      if(BuildExpansionFollowSignal(snapshot, result.signal))
+      {
+         result.hasSignal = true;
+         LogInfo("Strategy selected: ExpansionFollow");
+         return result;
+      }
+   }
+   else
+   {
+      AddCondition(suppressed, "ExpansionFollow");
+   }
+
+   // Priority 2: Pullback
+   if(PullbackCanTrade(snapshot))
+   {
+      if(BuildPullbackSignal(snapshot, result.signal))
+      {
+         result.hasSignal = true;
+         LogInfo("Strategy selected: Pullback");
+         return result;
+      }
+   }
+   else
+   {
+      AddCondition(suppressed, "Pullback");
+   }
+
+   // Priority 3: TrendContinuation
+   if(TrendContinuationCanTrade(snapshot))
+   {
+      if(BuildTrendContinuationSignal(snapshot, result.signal))
+      {
+         result.hasSignal = true;
+         LogInfo("Strategy selected: TrendContinuation");
+         return result;
+      }
+   }
+   else
+   {
+      AddCondition(suppressed, "TrendContinuation");
+   }
+
+   // Priority 4: Reversal
+   if(ReversalCanTrade(snapshot))
+   {
+      if(BuildReversalSignal(snapshot, result.signal))
+      {
+         result.hasSignal = true;
+         LogInfo("Strategy selected: Reversal");
+         return result;
+      }
+   }
+   else
+   {
+      AddCondition(suppressed, "Reversal");
+   }
+
+   // No signal found
+   result.hasSignal = false;
+   result.rejectionReason = REJECT_NO_STRATEGY_SIGNAL;
+   ArrayCopy(result.suppressedStrategies, suppressed);
+
+   LogDetailed("No strategy signal generated");
+
+   return result;
+}
+
+//+------------------------------------------------------------------+
+//| Check if Specific Strategy Can Trade                               |
+//+------------------------------------------------------------------+
+bool CanStrategyTrade(SMarketSnapshot &snapshot, string strategyName)
+{
+   if(strategyName == "ExpansionFollow")
+      return ExpansionFollowCanTrade(snapshot);
+   else if(strategyName == "Pullback")
+      return PullbackCanTrade(snapshot);
+   else if(strategyName == "TrendContinuation")
+      return TrendContinuationCanTrade(snapshot);
+   else if(strategyName == "Reversal")
+      return ReversalCanTrade(snapshot);
+
+   return false;
 }

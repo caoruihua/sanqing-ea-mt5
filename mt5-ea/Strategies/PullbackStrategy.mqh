@@ -5,7 +5,7 @@
 #property copyright "Sanqing EA MT5"
 #property strict
 
-#include "Common.mqh"
+#include "../Main/Common.mqh"
 
 //+------------------------------------------------------------------+
 //| Check if Strategy Can Trade                                       |

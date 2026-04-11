@@ -33,15 +33,34 @@ class TrendContinuationStrategy(BaseStrategy):
     def name(self) -> str:
         return "TrendContinuation"
 
+    # 趋势/震荡过滤阈值
+    ADX_THRESHOLD = 25.0  # ADX > 25 才认为是趋势
+    CHANNEL_WIDTH_MAX = 5.0  # 通道宽度 > 5倍ATR认为是宽幅震荡
+
     def can_trade(self, snapshot: MarketSnapshot, state: RuntimeState) -> bool:
         _ = state
-        return (
+        # 基础数据检查
+        if not (
             snapshot.atr14 > 0
             and snapshot.high_prev2 is not None
             and snapshot.high_prev3 is not None
             and snapshot.low_prev2 is not None
             and snapshot.low_prev3 is not None
-        )
+        ):
+            return False
+
+        # 趋势强度过滤：ADX必须足够高
+        if snapshot.adx14 is None or snapshot.adx14 < self.ADX_THRESHOLD:
+            return False
+
+        # 震荡过滤：通道不能太宽
+        if (
+            snapshot.channel_width_ratio is not None
+            and snapshot.channel_width_ratio > self.CHANNEL_WIDTH_MAX
+        ):
+            return False
+
+        return True
 
     def build_intent(
         self, snapshot: MarketSnapshot, state: RuntimeState
@@ -50,21 +69,21 @@ class TrendContinuationStrategy(BaseStrategy):
         if not self.can_trade(snapshot, state):
             return None
 
-        high_prev2 = snapshot.high_prev2
-        high_prev3 = snapshot.high_prev3
-        low_prev2 = snapshot.low_prev2
-        low_prev3 = snapshot.low_prev3
-        if high_prev2 is None or high_prev3 is None or low_prev2 is None or low_prev3 is None:
+        # 放宽突破条件：只需突破前1根K线（而不是前2-3根）
+        high_prev1 = snapshot.high
+        low_prev1 = snapshot.low
+        if high_prev1 is None or low_prev1 is None:
             return None
 
         body = abs(snapshot.close - snapshot.open)
         if body < TREND_CONTINUATION_ATR_MULTIPLIER_BODY * snapshot.atr14:
             return None
 
-        bullish_breakout = snapshot.close >= max(high_prev2, high_prev3) + (
+        # 突破前1根K线高点/低点 + 小幅缓冲
+        bullish_breakout = snapshot.close >= high_prev1 + (
             TREND_CONTINUATION_ATR_MULTIPLIER_BREAKOUT * snapshot.atr14
         )
-        bearish_breakout = snapshot.close <= min(low_prev2, low_prev3) - (
+        bearish_breakout = snapshot.close <= low_prev1 - (
             TREND_CONTINUATION_ATR_MULTIPLIER_BREAKOUT * snapshot.atr14
         )
 

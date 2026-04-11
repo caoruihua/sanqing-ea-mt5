@@ -5,19 +5,53 @@
 #property copyright "Sanqing EA MT5"
 #property strict
 
-#include "Common.mqh"
+#include "../Main/Common.mqh"
+
+//+------------------------------------------------------------------+
+//| Trend/Chop Filter Thresholds                                      |
+//+------------------------------------------------------------------+
+#define EXPANSION_FOLLOW_ADX_THRESHOLD       25.0   // ADX > 25 = trend
+#define EXPANSION_FOLLOW_CHANNEL_WIDTH_MAX   5.0    // > 5 = wide chop
 
 //+------------------------------------------------------------------+
 //| Check if Strategy Can Trade                                       |
 //+------------------------------------------------------------------+
 bool ExpansionFollowCanTrade(SMarketSnapshot &snapshot)
 {
-   return snapshot.atr14 > 0 &&
-          snapshot.medianBody20 > 0 &&
-          snapshot.prev3BodyMax > 0 &&
-          snapshot.volumeMA20 > 0 &&
-          snapshot.high20 > 0 &&
-          snapshot.low20 > 0;
+   // Basic data check
+   if(!(snapshot.atr14 > 0 &&
+        snapshot.medianBody20 > 0 &&
+        snapshot.prev3BodyMax > 0 &&
+        snapshot.volumeMA20 > 0 &&
+        snapshot.high20 > 0 &&
+        snapshot.low20 > 0))
+   {
+      LogDebug("ExpansionFollow cannot trade: basic data check failed. atr14=" + DoubleToString(snapshot.atr14, 4) +
+               " medianBody20=" + DoubleToString(snapshot.medianBody20, 4) +
+               " prev3BodyMax=" + DoubleToString(snapshot.prev3BodyMax, 4) +
+               " volumeMA20=" + DoubleToString(snapshot.volumeMA20, 2) +
+               " high20=" + DoubleToString(snapshot.high20, 4) +
+               " low20=" + DoubleToString(snapshot.low20, 4));
+      return false;
+   }
+
+   // ADX filter: must be in trend (ADX > 25)
+   if(snapshot.adx14 < EXPANSION_FOLLOW_ADX_THRESHOLD)
+   {
+      LogDetailed("ExpansionFollow filtered: ADX=" + DoubleToString(snapshot.adx14, 2) +
+                  " < " + DoubleToString(EXPANSION_FOLLOW_ADX_THRESHOLD, 2));
+      return false;
+   }
+
+   // Channel width filter: avoid wide chop (width < 5x ATR)
+   if(snapshot.channelWidthRatio > EXPANSION_FOLLOW_CHANNEL_WIDTH_MAX)
+   {
+      LogDetailed("ExpansionFollow filtered: ChannelWidth=" + DoubleToString(snapshot.channelWidthRatio, 2) +
+                  " > " + DoubleToString(EXPANSION_FOLLOW_CHANNEL_WIDTH_MAX, 2) + " (wide chop)");
+      return false;
+   }
+
+   return true;
 }
 
 //+------------------------------------------------------------------+

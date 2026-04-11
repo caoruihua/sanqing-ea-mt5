@@ -5,7 +5,7 @@
 #property copyright "Sanqing EA MT5"
 #property strict
 
-#include "Common.mqh"
+#include "../Main/Common.mqh"
 
 //+------------------------------------------------------------------+
 //| Entry Gate Result                                                |
@@ -24,17 +24,31 @@ struct SEntryGateResult
 bool IsLowVolatility(SMarketSnapshot &snapshot)
 {
    double atrPoints = AtrToPoints(snapshot.atr14);
-   
+
+   // ATR floor check
    if(atrPoints < InpLowVolAtrPointsFloor)
+   {
+      LogDetailed("Low volatility: ATR points=" + DoubleToString(atrPoints, 2) +
+                  " < floor=" + DoubleToString(InpLowVolAtrPointsFloor, 2));
       return true;
-   
+   }
+
+   // Skip spread check in backtesting or if spread is invalid (0 or negative)
+   // In backtest, spread can be 0 in some modes
    if(snapshot.spreadPoints <= 0)
-      return true;
-   
+   {
+      LogDetailed("Spread check skipped: spread=" + DoubleToString(snapshot.spreadPoints, 2) + " (backtest mode)");
+      return false;  // Allow trading even with 0 spread in backtest
+   }
+
    double atrSpreadRatio = atrPoints / snapshot.spreadPoints;
    if(atrSpreadRatio < InpLowVolAtrSpreadRatioFloor)
+   {
+      LogDetailed("Low volatility: ATR/Spread ratio=" + DoubleToString(atrSpreadRatio, 2) +
+                  " < floor=" + DoubleToString(InpLowVolAtrSpreadRatioFloor, 2));
       return true;
-   
+   }
+
    return false;
 }
 

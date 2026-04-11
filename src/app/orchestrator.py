@@ -71,6 +71,7 @@ class Orchestrator:
         self.state = state
         self.symbol = symbol
         self.magic = magic
+        self._first_snapshot_processed = False
 
     def start(self) -> None:
         connected = self.broker.connect()
@@ -113,6 +114,18 @@ class Orchestrator:
         self._process_protection(position=position, snapshot=snapshot)
 
         trace.append("new_bar_check")
+        if self.state.last_processed_bar_time is None:
+            # 首次启动（无状态文件），初始化 last_processed_bar_time，不执行交易
+            self.state.last_processed_bar_time = snapshot.last_closed_bar_time
+            self._first_snapshot_processed = True
+            self.state_store.save(self.state)
+            return {"success": False, "reason": "FIRST_START_INIT", "trace": trace}
+        if not self._first_snapshot_processed:
+            # 从恢复状态启动，先同步时间标记，等待下一根新K线再交易
+            self.state.last_processed_bar_time = snapshot.last_closed_bar_time
+            self._first_snapshot_processed = True
+            self.state_store.save(self.state)
+            return {"success": False, "reason": "RESUME_INIT", "trace": trace}
         if self.state.last_processed_bar_time == snapshot.last_closed_bar_time:
             self.state_store.save(self.state)
             return {"success": False, "reason": "NOT_NEW_CLOSED_BAR", "trace": trace}

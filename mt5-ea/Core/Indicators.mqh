@@ -5,15 +5,36 @@
 #property copyright "Sanqing EA MT5"
 #property strict
 
-#include "Common.mqh"
+#include "../Main/Common.mqh"
+
+//+------------------------------------------------------------------+
+//| Read indicator buffer value from an MQL5 handle                  |
+//+------------------------------------------------------------------+
+double ReadIndicatorValue(int handle, int bufferIndex, int shift)
+{
+   if(handle == INVALID_HANDLE)
+      return 0.0;
+
+   double values[];
+   ArraySetAsSeries(values, true);
+   if(CopyBuffer(handle, bufferIndex, shift, 1, values) < 1)
+   {
+      IndicatorRelease(handle);
+      return 0.0;
+   }
+
+   double value = values[0];
+   IndicatorRelease(handle);
+   return value;
+}
 
 //+------------------------------------------------------------------+
 //| Calculate EMA using MQL5 iMA                                     |
 //+------------------------------------------------------------------+
 double CalculateEMA(string symbol, int timeframe, int period, int shift = 0)
 {
-   double ema = iMA(symbol, timeframe, period, 0, MODE_EMA, PRICE_CLOSE, shift);
-   return ema;
+   int handle = iMA(symbol, (ENUM_TIMEFRAMES)timeframe, period, 0, MODE_EMA, PRICE_CLOSE);
+   return ReadIndicatorValue(handle, 0, shift);
 }
 
 //+------------------------------------------------------------------+
@@ -21,8 +42,8 @@ double CalculateEMA(string symbol, int timeframe, int period, int shift = 0)
 //+------------------------------------------------------------------+
 double CalculateATR(string symbol, int timeframe, int period, int shift = 0)
 {
-   double atr = iATR(symbol, timeframe, period, shift);
-   return atr;
+   int handle = iATR(symbol, (ENUM_TIMEFRAMES)timeframe, period);
+   return ReadIndicatorValue(handle, 0, shift);
 }
 
 //+------------------------------------------------------------------+
@@ -34,8 +55,8 @@ double CalculateEMAArray(double &closes[], int period)
       return 0.0;
       
    // Use the built-in iMA on the chart
-   double ema = iMA(_Symbol, PERIOD_CURRENT, period, 0, MODE_EMA, PRICE_CLOSE, 0);
-   return ema;
+   int handle = iMA(_Symbol, PERIOD_CURRENT, period, 0, MODE_EMA, PRICE_CLOSE);
+   return ReadIndicatorValue(handle, 0, 0);
 }
 
 //+------------------------------------------------------------------+
@@ -46,8 +67,8 @@ double GetEMAPrevValue(string symbol, int timeframe, int period, int barsBack)
    if(barsBack < 1)
       barsBack = 1;
       
-   double ema = iMA(symbol, timeframe, period, 0, MODE_EMA, PRICE_CLOSE, barsBack);
-   return ema;
+   int handle = iMA(symbol, (ENUM_TIMEFRAMES)timeframe, period, 0, MODE_EMA, PRICE_CLOSE);
+   return ReadIndicatorValue(handle, 0, barsBack);
 }
 
 //+------------------------------------------------------------------+
@@ -60,8 +81,8 @@ double CalculateATRArray(double &highs[], double &lows[], double &closes[], int 
       return 0.0;
       
    // Use the built-in iATR
-   double atr = iATR(_Symbol, PERIOD_CURRENT, period, 0);
-   return atr;
+   int handle = iATR(_Symbol, PERIOD_CURRENT, period);
+   return ReadIndicatorValue(handle, 0, 0);
 }
 
 //+------------------------------------------------------------------+
@@ -157,4 +178,43 @@ bool IsBearishCandle(double open, double close)
 double GetSpreadPoints()
 {
    return (double)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
+}
+
+//+------------------------------------------------------------------+
+//| Calculate ADX using MQL5 iADX                                    |
+//+------------------------------------------------------------------+
+double CalculateADX(string symbol, int timeframe, int period, int shift = 0)
+{
+   int handle = iADX(symbol, (ENUM_TIMEFRAMES)timeframe, period);
+   return ReadIndicatorValue(handle, 0, shift);
+}
+
+//+------------------------------------------------------------------+
+//| Calculate ADX from arrays (wrapper using iADX)                   |
+//+------------------------------------------------------------------+
+double CalculateADXArray(double &highs[], double &lows[], double &closes[], int period)
+{
+   // Use the built-in iADX on the chart
+   int handle = iADX(_Symbol, PERIOD_CURRENT, period);
+   return ReadIndicatorValue(handle, 0, 0);
+}
+
+//+------------------------------------------------------------------+
+//| Calculate Channel Width Ratio                                     |
+//| Formula: (high_20 - low_20) / atr14                              |
+//| Returns:                                                           |
+//|   < 3: Narrow range (consolidation)                               |
+//|   3-5: Normal trend movement                                      |
+//|   > 5: Wide chop (false breakout risk)                            |
+//+------------------------------------------------------------------+
+double CalculateChannelWidthRatio(double high20, double low20, double atr14)
+{
+   if(high20 <= 0 || low20 <= 0 || atr14 <= 0)
+      return 0.0;
+
+   double channelWidth = high20 - low20;
+   if(channelWidth <= 0)
+      return 0.0;
+
+   return channelWidth / atr14;
 }
