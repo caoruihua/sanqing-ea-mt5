@@ -8,67 +8,72 @@
 //+------------------------------------------------------------------+
 //| Constants - Default Parameters                                    |
 //+------------------------------------------------------------------+
-#define DEFAULT_MAGIC_NUMBER           20260313
-#define DEFAULT_SYMBOL                 "XAUUSD"
-#define DEFAULT_TIMEFRAME              PERIOD_M5
-#define DEFAULT_DIGITS                 2
+#define DEFAULT_MAGIC_NUMBER           20260313    // 默认魔术编号
+#define DEFAULT_SYMBOL                 "XAUUSD"    // 默认交易品种
+#define DEFAULT_TIMEFRAME              PERIOD_M5   // 默认时间周期
+#define DEFAULT_DIGITS                 2           // 默认小数位数
 
 // Logging
-#define DEFAULT_LOG_LEVEL              1
-#define LOG_LEVEL_OFF                  0
-#define LOG_LEVEL_MINIMAL              1
-#define LOG_LEVEL_DETAILED             2
-#define LOG_LEVEL_DEBUG                3
+#define DEFAULT_LOG_LEVEL              1           // 默认日志级别
+#define LOG_LEVEL_OFF                  0           // 日志级别：关闭
+#define LOG_LEVEL_MINIMAL              1           // 日志级别：最小
+#define LOG_LEVEL_DETAILED             2           // 日志级别：详细
+#define LOG_LEVEL_DEBUG                3           // 日志级别：调试
 
 // Daily Risk
-#define DEFAULT_MAX_TRADES_PER_DAY     30
-#define DEFAULT_DAILY_PROFIT_STOP_USD  50.0
+#define DEFAULT_MAX_TRADES_PER_DAY     30          // 每日最大交易次数
+#define DEFAULT_DAILY_PROFIT_STOP_USD  50.0        // 每日盈利停止金额（美元）
 
 // Trading
-#define DEFAULT_FIXED_LOTS             0.01
-#define DEFAULT_SLIPPAGE               30
-#define DEFAULT_MAX_RETRIES            6
+#define DEFAULT_FIXED_LOTS             0.01        // 默认固定手数
+#define DEFAULT_SLIPPAGE               30          // 默认滑点（点）
+#define DEFAULT_MAX_RETRIES            6           // 最大重试次数
 
 // Indicators
-#define DEFAULT_EMA_FAST_PERIOD        9
-#define DEFAULT_EMA_SLOW_PERIOD        21
-#define DEFAULT_ATR_PERIOD             14
+#define DEFAULT_EMA_FAST_PERIOD        9           // 快速EMA周期
+#define DEFAULT_EMA_SLOW_PERIOD        21          // 慢速EMA周期
+#define DEFAULT_ATR_PERIOD             14          // ATR周期
 
 // Volatility Filter
-#define DEFAULT_LOW_VOL_ATR_POINTS_FLOOR      300.0
-#define DEFAULT_LOW_VOL_ATR_SPREAD_RATIO_FLOOR 3.0
+#define DEFAULT_LOW_VOL_ATR_POINTS_FLOOR      300.0   // 低波动ATR下限（点）
+#define DEFAULT_LOW_VOL_ATR_SPREAD_RATIO_FLOOR 3.0    // 低波动ATR/点差比下限
 
 // TrendContinuation Parameters
-#define TREND_CONTINUATION_ATR_MULTIPLIER_BREAKOUT  0.20
-#define TREND_CONTINUATION_ATR_MULTIPLIER_BODY      0.35
-#define TREND_CONTINUATION_INITIAL_SL_ATR           1.2
-#define TREND_CONTINUATION_INITIAL_TP_ATR           2.0
+#define TREND_CONTINUATION_ATR_MULTIPLIER_BREAKOUT  0.20   // 趋势延续突破ATR倍数
+#define TREND_CONTINUATION_ATR_MULTIPLIER_BODY      0.35   // 趋势延续实体ATR倍数
+#define TREND_CONTINUATION_INITIAL_SL_ATR           1.2    // 趋势延续初始止损ATR倍数
+#define TREND_CONTINUATION_INITIAL_TP_ATR           2.0    // 趋势延续初始止盈ATR倍数
 
 // Pullback Parameters
-#define PULLBACK_EMA_TOLERANCE_ATR       0.15
-#define PULLBACK_INITIAL_SL_ATR          1.2
-#define PULLBACK_INITIAL_TP_ATR         2.0
+#define PULLBACK_EMA_TOLERANCE_ATR       0.15      // 回调EMA容差ATR倍数
+#define PULLBACK_INITIAL_SL_ATR          1.2       // 回调初始止损ATR倍数
+#define PULLBACK_INITIAL_TP_ATR          2.0       // 回调初始止盈ATR倍数
 
 // ExpansionFollow Parameters
-#define EXPANSION_FOLLOW_BODY_ATR_MIN            4.0
-#define EXPANSION_FOLLOW_BODY_MEDIAN_RATIO_MIN   2.20
-#define EXPANSION_FOLLOW_BODY_PREV3_MAX_RATIO_MIN 1.80
-#define EXPANSION_FOLLOW_VOLUME_MA_RATIO_MIN     1.90
-#define EXPANSION_FOLLOW_BODY_RANGE_RATIO_MIN    0.65
-#define EXPANSION_FOLLOW_BREAKOUT_ATR_BUFFER      0.10
-#define EXPANSION_FOLLOW_STOP_LOSS_RANGE_RATIO   0.6
-#define EXPANSION_FOLLOW_INITIAL_TP_ATR          2.0
+#define EXPANSION_FOLLOW_BODY_ATR_MIN            4.0    // 扩展跟随最小实体ATR倍数
+#define EXPANSION_FOLLOW_BODY_MEDIAN_RATIO_MIN   2.20   // 扩展跟随实体/中位数比最小值
+#define EXPANSION_FOLLOW_BODY_PREV3_MAX_RATIO_MIN 1.80  // 扩展跟随实体/前3根最大比最小值
+#define EXPANSION_FOLLOW_VOLUME_MA_RATIO_MIN     1.90   // 扩展跟随成交量/均线比最小值
+#define EXPANSION_FOLLOW_BODY_RANGE_RATIO_MIN    0.65   // 扩展跟随实体/区间比最小值
+#define EXPANSION_FOLLOW_BREAKOUT_ATR_BUFFER     0.10   // 扩展跟随突破ATR缓冲
+#define EXPANSION_FOLLOW_STOP_LOSS_RANGE_RATIO   0.6    // 扩展跟随止损/区间比
+#define EXPANSION_FOLLOW_INITIAL_TP_ATR          2.0    // 扩展跟随初始止盈ATR倍数
+
+// Reversal Strategy Sprint Detection Parameters
+#define REVERSAL_MOVE_ATR_MULTIPLIER          2.8      // 明显涨跌检测：ATR倍数阈值
+#define REVERSAL_STOP_BUFFER_DOLLAR           6.0      // 反转止损缓冲（美元）
+#define REVERSAL_TP_ATR_MULTIPLIER            2.5      // 反转止盈ATR倍数
 
 // Protection Engine Parameters
-#define PROTECTION_STAGE1_ATR_MULTIPLIER      1.0
-#define PROTECTION_STAGE1_SL_BUFFER_ATR       0.1
-#define PROTECTION_STAGE1_TP_ATR              2.5
-#define PROTECTION_STAGE2_ATR_MULTIPLIER      1.5
-#define PROTECTION_STAGE2_SL_DISTANCE_ATR     0.9
-#define PROTECTION_STAGE2_TP_DISTANCE_ATR     0.8
+#define PROTECTION_STAGE1_ATR_MULTIPLIER      1.0      // 保护阶段1 ATR倍数
+#define PROTECTION_STAGE1_SL_BUFFER_ATR       0.1      // 保护阶段1止损缓冲ATR倍数
+#define PROTECTION_STAGE1_TP_ATR              2.5      // 保护阶段1止盈ATR倍数
+#define PROTECTION_STAGE2_ATR_MULTIPLIER      1.5      // 保护阶段2 ATR倍数
+#define PROTECTION_STAGE2_SL_DISTANCE_ATR     0.9      // 保护阶段2止损距离ATR倍数
+#define PROTECTION_STAGE2_TP_DISTANCE_ATR     0.8      // 保护阶段2止盈距离ATR倍数
 
 // State File
-#define STATE_FILE_NAME            "sanqing_ea_state.json"
+#define STATE_FILE_NAME            "sanqing_ea_state.json"   // 状态文件名
 
 enum ENUM_PROTECTION_STAGE
 {
@@ -143,6 +148,12 @@ struct SMarketSnapshot
    // Trend/Chop filtering fields
    double     adx14;                  // ADX(14) trend strength
    double     channelWidthRatio;      // (high20 - low20) / atr14
+
+   // Sprint detection fields (2-hour window)
+   double     close24Ago;             // Close price 24 bars ago
+   double     priceMove24;            // Price move in 24 bars (positive = up)
+   double     high24;                 // High of last 24 bars
+   double     low24;                  // Low of last 24 bars
 };
 
 //+------------------------------------------------------------------+

@@ -38,6 +38,28 @@ bool ReversalCanTrade(SMarketSnapshot &snapshot)
 }
 
 //+------------------------------------------------------------------+
+//| Check if Has Significant Move (Sprint Detection)                 |
+//+------------------------------------------------------------------+
+bool HasSignificantMove(SMarketSnapshot &snapshot)
+{
+   // Check if price move data is valid
+   if(snapshot.priceMove24 == 0.0 || snapshot.atr14 <= 0)
+      return false;
+   
+   double threshold = snapshot.atr14 * REVERSAL_MOVE_ATR_MULTIPLIER;
+   
+   // Check for significant up move (potential bearish reversal)
+   if(snapshot.priceMove24 >= threshold)
+      return true;
+   
+   // Check for significant down move (potential bullish reversal)
+   if(snapshot.priceMove24 <= -threshold)
+      return true;
+   
+   return false;
+}
+
+//+------------------------------------------------------------------+
 //| Check if Uptrend (for bearish reversal)                           |
 //+------------------------------------------------------------------+
 bool IsReversalUptrend(SMarketSnapshot &snapshot)
@@ -157,8 +179,15 @@ bool BuildReversalSignal(SMarketSnapshot &snapshot, SSignalDecision &signal)
    if(!ReversalCanTrade(snapshot))
       return false;
 
-   // Check if we have high_20 and low_20 for TP calculation
-   if(snapshot.high20 <= 0 || snapshot.low20 <= 0)
+   // NEW: Hard prerequisite - must have significant move (sprint detection)
+   if(!HasSignificantMove(snapshot))
+   {
+      LogDebug("Reversal: No significant move detected, skipping signal");
+      return false;
+   }
+
+   // Check if we have high24 and low24 for SL calculation
+   if(snapshot.high24 <= 0 || snapshot.low24 <= 0)
       return false;
 
    string conditionMet = "";
@@ -167,38 +196,38 @@ bool BuildReversalSignal(SMarketSnapshot &snapshot, SSignalDecision &signal)
    double stopLoss = 0.0;
    double takeProfit = 0.0;
 
-   // Calculate 20-bar range for TP
-   double range20 = snapshot.high20 - snapshot.low20;
-
-   // Check Dark Cloud Cover (bearish reversal in uptrend)
-   if(IsReversalUptrend(snapshot) && DetectDarkCloudCover(snapshot))
+   // Check Dark Cloud Cover (bearish reversal after significant up move)
+   if(snapshot.priceMove24 > 0 && DetectDarkCloudCover(snapshot))
    {
       conditionMet = "dark_cloud_cover";
       orderType = ORDER_TYPE_SELL;
       entryPrice = snapshot.bid;
-      stopLoss = snapshot.high3 + REVERSAL_STOP_BUFFER_POINTS;
-      // TP: high_20 - 60% of range
-      takeProfit = snapshot.high20 - range20 * 0.6;
+      // NEW: SL = high24 + 6 dollars
+      stopLoss = snapshot.high24 + REVERSAL_STOP_BUFFER_DOLLAR;
+      // NEW: TP = entry - ATR * 2.5
+      takeProfit = entryPrice - snapshot.atr14 * REVERSAL_TP_ATR_MULTIPLIER;
    }
-   // Check Long Upper Shadow (bearish reversal in uptrend)
-   else if(IsReversalUptrend(snapshot) && DetectLongUpperShadow(snapshot))
+   // Check Long Upper Shadow (bearish reversal after significant up move)
+   else if(snapshot.priceMove24 > 0 && DetectLongUpperShadow(snapshot))
    {
       conditionMet = "long_upper_shadow";
       orderType = ORDER_TYPE_SELL;
       entryPrice = snapshot.bid;
-      stopLoss = snapshot.high3 + REVERSAL_STOP_BUFFER_POINTS;
-      // TP: high_20 - 60% of range
-      takeProfit = snapshot.high20 - range20 * 0.6;
+      // NEW: SL = high24 + 6 dollars
+      stopLoss = snapshot.high24 + REVERSAL_STOP_BUFFER_DOLLAR;
+      // NEW: TP = entry - ATR * 2.5
+      takeProfit = entryPrice - snapshot.atr14 * REVERSAL_TP_ATR_MULTIPLIER;
    }
-   // Check Long Lower Shadow (bullish reversal in downtrend)
-   else if(IsReversalDowntrend(snapshot) && DetectLongLowerShadow(snapshot))
+   // Check Long Lower Shadow (bullish reversal after significant down move)
+   else if(snapshot.priceMove24 < 0 && DetectLongLowerShadow(snapshot))
    {
       conditionMet = "long_lower_shadow";
       orderType = ORDER_TYPE_BUY;
       entryPrice = snapshot.ask;
-      stopLoss = snapshot.low3 - REVERSAL_STOP_BUFFER_POINTS;
-      // TP: low_20 + 60% of range
-      takeProfit = snapshot.low20 + range20 * 0.6;
+      // NEW: SL = low24 - 6 dollars
+      stopLoss = snapshot.low24 - REVERSAL_STOP_BUFFER_DOLLAR;
+      // NEW: TP = entry + ATR * 2.5
+      takeProfit = entryPrice + snapshot.atr14 * REVERSAL_TP_ATR_MULTIPLIER;
    }
    else
    {
@@ -224,6 +253,7 @@ bool BuildReversalSignal(SMarketSnapshot &snapshot, SSignalDecision &signal)
                 " signal: Entry=" + DoubleToString(signal.entryPrice, g_digits) +
                 " SL=" + DoubleToString(signal.stopLoss, g_digits) +
                 " TP=" + DoubleToString(signal.takeProfit, g_digits) +
+                " Move24=" + DoubleToString(snapshot.priceMove24, g_digits) +
                 " Condition=" + conditionMet);
 
    return true;

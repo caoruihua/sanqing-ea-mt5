@@ -149,6 +149,12 @@ bool BuildMarketSnapshot(SMarketSnapshot &snapshot)
    snapshot.adx14 = CalculateADX(g_symbol, PERIOD_CURRENT, 14, 1);
    snapshot.channelWidthRatio = CalculateChannelWidthRatio(snapshot.high20, snapshot.low20, snapshot.atr14);
 
+   // Sprint detection fields (2-hour window)
+   snapshot.close24Ago = CalculateClose24Ago(closes);
+   snapshot.priceMove24 = CalculatePriceMove24(closes);
+   snapshot.high24 = CalculateHigh24(highs);
+   snapshot.low24 = CalculateLow24(lows);
+
    LogDebug("Snapshot built: EMA_F=" + DoubleToString(snapshot.emaFast, g_digits) +
             " EMA_S=" + DoubleToString(snapshot.emaSlow, g_digits) +
             " ATR=" + DoubleToString(snapshot.atr14, g_digits) +
@@ -247,6 +253,71 @@ double CalculateLow20(double &lows[])
    double minLow = DBL_MAX;
    // Bars 2 to 21 (excluding current bar 1 and 0)
    for(int i = 2; i <= 21; i++)
+   {
+      if(lows[i] < minLow)
+         minLow = lows[i];
+   }
+   
+   return minLow;
+}
+
+//+------------------------------------------------------------------+
+//| Calculate Close 24 Bars Ago                                      |
+//+------------------------------------------------------------------+
+double CalculateClose24Ago(double &closes[])
+{
+   int size = ArraySize(closes);
+   if(size < 26)
+      return 0.0;
+   
+   return closes[25];  // Index 25 = 24 bars before current closed bar
+}
+
+//+------------------------------------------------------------------+
+//| Calculate Price Move in 24 Bars                                  |
+//+------------------------------------------------------------------+
+double CalculatePriceMove24(double &closes[])
+{
+   int size = ArraySize(closes);
+   if(size < 26)
+      return 0.0;
+   
+   // close[1] is last closed bar, close[25] is 24 bars before
+   return closes[1] - closes[25];
+}
+
+//+------------------------------------------------------------------+
+//| Calculate High of Last 24 Bars (excluding current)               |
+//+------------------------------------------------------------------+
+double CalculateHigh24(double &highs[])
+{
+   int size = ArraySize(highs);
+   if(size < 26)
+      return 0.0;
+   
+   double maxHigh = 0.0;
+   // Bars 1 to 24 (excluding current bar 0)
+   for(int i = 1; i <= 24; i++)
+   {
+      if(highs[i] > maxHigh)
+         maxHigh = highs[i];
+   }
+   
+   return maxHigh;
+}
+
+//+------------------------------------------------------------------+
+//| Calculate Low of Last 24 Bars (excluding current)                |
+//+------------------------------------------------------------------+
+double CalculateLow24(double &lows[])
+{
+   int size = ArraySize(lows);
+   if(size < 26)
+      return DBL_MAX;
+   
+   double minLow = DBL_MAX;
+   // Bars 1 to 24 (excluding current bar 0)
+   for(int i = 1; i <= 24; i++)
    {
       if(lows[i] < minLow)
          minLow = lows[i];
