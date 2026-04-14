@@ -21,7 +21,7 @@ bool CopyRatesToArrays(string symbol, int timeframe, int count,
    int copied = CopyRates(symbol, (ENUM_TIMEFRAMES)timeframe, 0, count, rates);
    if(copied <= 0)
    {
-      LogError("Failed to copy rates, error: " + (string)GetLastError());
+      LogError("复制行情数据失败, 错误: " + (string)GetLastError());
       return false;
    }
    
@@ -51,7 +51,7 @@ bool GetCurrentTick(string symbol, double &bid, double &ask)
    MqlTick tick;
    if(!SymbolInfoTick(symbol, tick))
    {
-      LogError("Failed to get tick for " + symbol);
+      LogError("获取tick失败: " + symbol);
       return false;
    }
    
@@ -154,6 +154,18 @@ bool BuildMarketSnapshot(SMarketSnapshot &snapshot)
    snapshot.priceMove24 = CalculatePriceMove24(closes);
    snapshot.high24 = CalculateHigh24(highs);
    snapshot.low24 = CalculateLow24(lows);
+
+   // H1 Trend filter fields
+   if(InpTrendTimeframe > 0)
+   {
+      snapshot.emaTrend_H1 = CalculateEMA(g_symbol, InpTrendTimeframe, InpEmaTrendPeriod, 1);
+      snapshot.close_H1 = GetH1Close();
+   }
+   else
+   {
+      snapshot.emaTrend_H1 = 0;
+      snapshot.close_H1 = 0;
+   }
 
    LogDebug("Snapshot built: EMA_F=" + DoubleToString(snapshot.emaFast, g_digits) +
             " EMA_S=" + DoubleToString(snapshot.emaSlow, g_digits) +
@@ -341,4 +353,39 @@ bool IsDowntrend(SMarketSnapshot &snapshot)
    return snapshot.emaFast < snapshot.emaSlow &&
           snapshot.emaFast < snapshot.emaFastPrev3 &&
           snapshot.emaSlow < snapshot.emaSlowPrev3;
+}
+
+//+------------------------------------------------------------------+
+//| Get H1 Close Price                                                |
+//+------------------------------------------------------------------+
+double GetH1Close()
+{
+   double closes[];
+   ArraySetAsSeries(closes, true);
+   
+   if(CopyClose(g_symbol, PERIOD_H1, 1, 1, closes) < 1)
+      return 0.0;
+   
+   return closes[0];
+}
+
+//+------------------------------------------------------------------+
+//| Check H1 Trend Direction (for trend filter)                      |
+//+------------------------------------------------------------------++
+bool IsH1Uptrend(SMarketSnapshot &snapshot)
+{
+   // If H1 filter is disabled, always return true
+   if(InpTrendTimeframe <= 0 || snapshot.emaTrend_H1 <= 0)
+      return true;
+   
+   return snapshot.close_H1 > snapshot.emaTrend_H1;
+}
+
+bool IsH1Downtrend(SMarketSnapshot &snapshot)
+{
+   // If H1 filter is disabled, always return true
+   if(InpTrendTimeframe <= 0 || snapshot.emaTrend_H1 <= 0)
+      return true;
+   
+   return snapshot.close_H1 < snapshot.emaTrend_H1;
 }

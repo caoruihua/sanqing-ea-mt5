@@ -7,6 +7,12 @@
 #property strict
 
 #include "../Main/Common.mqh"
+#include "../Core/ContextBuilder.mqh"
+
+//+------------------------------------------------------------------+
+//| Reversal ADX Threshold                                            |
+//+------------------------------------------------------------------+
+#define REVERSAL_ADX_THRESHOLD       25.0   // ADX > 25 = trend
 
 //+------------------------------------------------------------------+
 //| Reversal Strategy Parameters                                      |
@@ -33,6 +39,14 @@ bool ReversalCanTrade(SMarketSnapshot &snapshot)
         snapshot.emaSlow > 0 &&
         snapshot.emaFastPrev3 > 0))
       return false;
+
+   // ADX filter: must be in trend (ADX > 25)
+   if(snapshot.adx14 < REVERSAL_ADX_THRESHOLD)
+   {
+      LogDebug("反转过滤: ADX=" + DoubleToString(snapshot.adx14, 2) +
+               " < 阈值=" + DoubleToString(REVERSAL_ADX_THRESHOLD, 2));
+      return false;
+   }
 
    return true;
 }
@@ -182,7 +196,7 @@ bool BuildReversalSignal(SMarketSnapshot &snapshot, SSignalDecision &signal)
    // NEW: Hard prerequisite - must have significant move (sprint detection)
    if(!HasSignificantMove(snapshot))
    {
-      LogDebug("Reversal: No significant move detected, skipping signal");
+      LogDebug("反转: 未检测到明显波动, 跳过信号");
       return false;
    }
 
@@ -249,12 +263,12 @@ bool BuildReversalSignal(SMarketSnapshot &snapshot, SSignalDecision &signal)
    ArrayResize(signal.conditionsMet, 1);
    signal.conditionsMet[0] = conditionMet;
 
-   LogDetailed("Reversal " + (orderType == ORDER_TYPE_BUY ? "BUY" : "SELL") +
-                " signal: Entry=" + DoubleToString(signal.entryPrice, g_digits) +
-                " SL=" + DoubleToString(signal.stopLoss, g_digits) +
-                " TP=" + DoubleToString(signal.takeProfit, g_digits) +
-                " Move24=" + DoubleToString(snapshot.priceMove24, g_digits) +
-                " Condition=" + conditionMet);
+   LogDetailed("反转" + (orderType == ORDER_TYPE_BUY ? "做多" : "做空") +
+                "信号: 入场=" + DoubleToString(signal.entryPrice, g_digits) +
+                " 止损=" + DoubleToString(signal.stopLoss, g_digits) +
+                " 止盈=" + DoubleToString(signal.takeProfit, g_digits) +
+                " 24周期波动=" + DoubleToString(snapshot.priceMove24, g_digits) +
+                " 条件=" + conditionMet);
 
    return true;
 }

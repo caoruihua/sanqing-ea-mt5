@@ -158,7 +158,7 @@ bool SaveState(SRuntimeState &state)
    
    if(handle == INVALID_HANDLE)
    {
-      LogError("Failed to open temp file for writing");
+      LogError("无法打开临时文件进行写入");
       return false;
    }
    
@@ -168,11 +168,11 @@ bool SaveState(SRuntimeState &state)
    // Rename temp file to actual file (atomic operation)
    if(!FileMove(tmpPath, 0, filePath, 0))
    {
-      LogError("Failed to rename temp file to state file");
+      LogError("无法重命名临时文件为状态文件");
       return false;
    }
    
-   LogDebug("State saved successfully");
+   LogDebug("状态保存成功");
    return true;
 }
 
@@ -185,14 +185,14 @@ bool LoadState(SRuntimeState &state)
    
    if(!FileIsExist(filePath))
    {
-      LogInfo("State file not found, starting fresh");
+      LogInfo("状态文件未找到, 从头开始");
       return false;
    }
    
    int handle = FileOpen(filePath, FILE_READ | FILE_TXT | FILE_ANSI);
    if(handle == INVALID_HANDLE)
    {
-      LogError("Failed to open state file");
+      LogError("无法打开状态文件");
       return false;
    }
    
@@ -204,11 +204,11 @@ bool LoadState(SRuntimeState &state)
    
    if(!JsonToRuntimeState(json, state))
    {
-      LogError("Failed to parse state file");
+      LogError("无法解析状态文件");
       return false;
    }
    
-   LogInfo("State loaded successfully");
+   LogInfo("状态加载成功");
    return true;
 }
 

@@ -28,8 +28,8 @@ bool IsLowVolatility(SMarketSnapshot &snapshot)
    // ATR floor check
    if(atrPoints < InpLowVolAtrPointsFloor)
    {
-      LogDetailed("Low volatility: ATR points=" + DoubleToString(atrPoints, 2) +
-                  " < floor=" + DoubleToString(InpLowVolAtrPointsFloor, 2));
+      LogDetailed("低波动性: ATR点数=" + DoubleToString(atrPoints, 2) +
+                  " < 下限=" + DoubleToString(InpLowVolAtrPointsFloor, 2));
       return true;
    }
 
@@ -37,15 +37,15 @@ bool IsLowVolatility(SMarketSnapshot &snapshot)
    // In backtest, spread can be 0 in some modes
    if(snapshot.spreadPoints <= 0)
    {
-      LogDetailed("Spread check skipped: spread=" + DoubleToString(snapshot.spreadPoints, 2) + " (backtest mode)");
+      LogDetailed("跳过点差检查: 点差=" + DoubleToString(snapshot.spreadPoints, 2) + " (回测模式)");
       return false;  // Allow trading even with 0 spread in backtest
    }
 
    double atrSpreadRatio = atrPoints / snapshot.spreadPoints;
    if(atrSpreadRatio < InpLowVolAtrSpreadRatioFloor)
    {
-      LogDetailed("Low volatility: ATR/Spread ratio=" + DoubleToString(atrSpreadRatio, 2) +
-                  " < floor=" + DoubleToString(InpLowVolAtrSpreadRatioFloor, 2));
+      LogDetailed("低波动性: ATR/点差比=" + DoubleToString(atrSpreadRatio, 2) +
+                  " < 下限=" + DoubleToString(InpLowVolAtrSpreadRatioFloor, 2));
       return true;
    }
 
@@ -129,7 +129,7 @@ SEntryGateResult EvaluateEntryGate(SSignalDecision &signal,
    if(state.lastEntryBarTime == snapshot.lastClosedBarTime)
    {
       result.reasonCode = REJECT_NOT_NEW_CLOSED_BAR;
-      LogDetailed("Entry rejected: Not new closed bar");
+      LogDetailed("入场拒绝: 非新闭合K线");
       return result;
    }
    
@@ -137,7 +137,7 @@ SEntryGateResult EvaluateEntryGate(SSignalDecision &signal,
    if(state.dailyLocked)
    {
       result.reasonCode = REJECT_DAILY_LOCKED;
-      LogDetailed("Entry rejected: Daily locked");
+      LogDetailed("入场拒绝: 每日已锁定");
       return result;
    }
    
@@ -145,7 +145,7 @@ SEntryGateResult EvaluateEntryGate(SSignalDecision &signal,
    if(state.tradesToday >= InpMaxTradesPerDay)
    {
       result.reasonCode = REJECT_MAX_TRADES_EXCEEDED;
-      LogDetailed("Entry rejected: Max trades exceeded");
+      LogDetailed("入场拒绝: 超过每日最大交易次数");
       return result;
    }
    
@@ -153,7 +153,7 @@ SEntryGateResult EvaluateEntryGate(SSignalDecision &signal,
    if(HasExistingPosition(g_symbol, InpMagicNumber))
    {
       result.reasonCode = REJECT_EXISTING_POSITION;
-      LogDetailed("Entry rejected: Existing position");
+      LogDetailed("入场拒绝: 已有持仓");
       return result;
    }
    
@@ -161,7 +161,7 @@ SEntryGateResult EvaluateEntryGate(SSignalDecision &signal,
    if(IsLowVolatility(snapshot))
    {
       result.reasonCode = REJECT_LOW_VOLATILITY;
-      LogDetailed("Entry rejected: Low volatility");
+      LogDetailed("入场拒绝: 低波动性");
       return result;
    }
    
@@ -169,7 +169,7 @@ SEntryGateResult EvaluateEntryGate(SSignalDecision &signal,
    if(!CanStrategyTrade(snapshot, strategyName))
    {
       result.reasonCode = REJECT_STRATEGY_CANNOT_TRADE;
-      LogDetailed("Entry rejected: Strategy cannot trade");
+      LogDetailed("入场拒绝: 策略无法交易");
       return result;
    }
    

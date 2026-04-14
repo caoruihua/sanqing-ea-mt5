@@ -48,26 +48,26 @@ int OnInit()
    // Validate input parameters
    if(InpEmaFastPeriod >= InpEmaSlowPeriod)
    {
-      Print("ERROR: EMA Fast Period must be less than Slow Period");
+      Print("错误: 快速EMA周期必须小于慢速EMA周期");
       return INIT_PARAMETERS_INCORRECT;
    }
    
    if(InpEmaFastPeriod <= 0 || InpEmaSlowPeriod <= 0 || InpAtrPeriod <= 0)
    {
-      Print("ERROR: Indicator periods must be positive");
+      Print("错误: 指标周期必须为正数");
       return INIT_PARAMETERS_INCORRECT;
    }
    
    if(InpFixedLots <= 0)
    {
-      Print("ERROR: Fixed Lots must be positive");
+      Print("错误: 固定手数必须为正数");
       return INIT_PARAMETERS_INCORRECT;
    }
    
    // Initialize runtime state
    if(LoadState(g_runtimeState))
    {
-      LogInfo("State loaded from file");
+      LogInfo("从文件加载状态");
       
       // Reconcile with actual positions
       ReconcileState();
@@ -75,7 +75,7 @@ int OnInit()
    else
    {
       InitializeDefaultState(g_runtimeState);
-      LogInfo("Initialized with default state");
+      LogInfo("使用默认状态初始化");
    }
    
    // Initialize protection state from runtime state
@@ -85,15 +85,15 @@ int OnInit()
    
    // Print initialization summary
    Print("========================================");
-   Print("Sanqing EA MT5 v1.0 Initialized");
-   Print("Symbol: ", g_symbol, " Digits: ", g_digits);
-   Print("Magic: ", InpMagicNumber);
-   Print("EMA Fast: ", InpEmaFastPeriod, " EMA Slow: ", InpEmaSlowPeriod);
-   Print("ATR Period: ", InpAtrPeriod);
-   Print("Fixed Lots: ", DoubleToString(InpFixedLots, 2));
-   Print("Max Trades/Day: ", InpMaxTradesPerDay);
-   Print("Daily Profit Stop: $", DoubleToString(InpDailyProfitStopUsd, 2));
-   Print("Log Level: ", InpLogLevel);
+   Print("三清EA MT5 v1.0 初始化完成");
+   Print("品种: ", g_symbol, " 小数位: ", g_digits);
+   Print("魔术号: ", InpMagicNumber);
+   Print("快速EMA: ", InpEmaFastPeriod, " 慢速EMA: ", InpEmaSlowPeriod);
+   Print("ATR周期: ", InpAtrPeriod);
+   Print("固定手数: ", DoubleToString(InpFixedLots, 2));
+   Print("每日最大交易次数: ", InpMaxTradesPerDay);
+   Print("每日盈利停止: $", DoubleToString(InpDailyProfitStopUsd, 2));
+   Print("日志级别: ", InpLogLevel);
    Print("========================================");
    
    return INIT_SUCCEEDED;
@@ -108,10 +108,10 @@ void OnDeinit(const int reason)
    if(g_initialized)
    {
       SaveState(g_runtimeState);
-      LogInfo("State saved on exit");
+      LogInfo("退出时保存状态");
    }
    
-   Print("Sanqing EA stopped. Reason: ", reason);
+   Print("三清EA已停止. 原因: ", reason);
 }
 
 //+------------------------------------------------------------------+

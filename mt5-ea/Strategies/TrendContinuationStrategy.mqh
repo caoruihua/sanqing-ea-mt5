@@ -6,6 +6,7 @@
 #property strict
 
 #include "../Main/Common.mqh"
+#include "../Core/ContextBuilder.mqh"
 
 //+------------------------------------------------------------------+
 //| Trend/Chop Filter Thresholds                                      |
@@ -23,23 +24,23 @@ bool TrendContinuationCanTrade(SMarketSnapshot &snapshot)
         snapshot.high > 0 &&
         snapshot.low > 0))
    {
-      LogDebug("TrendContinuation cannot trade: basic data check failed");
+      LogDebug("趋势延续策略无法交易: 基础数据检查失败");
       return false;
    }
 
    // ADX filter: must be in trend (ADX > 25)
    if(snapshot.adx14 < TREND_CONTINUATION_ADX_THRESHOLD)
    {
-      LogDebug("TrendContinuation filtered: ADX=" + DoubleToString(snapshot.adx14, 2) +
-               " < threshold=" + DoubleToString(TREND_CONTINUATION_ADX_THRESHOLD, 2));
+      LogDebug("趋势延续过滤: ADX=" + DoubleToString(snapshot.adx14, 2) +
+               " < 阈值=" + DoubleToString(TREND_CONTINUATION_ADX_THRESHOLD, 2));
       return false;
    }
 
    // Channel width filter: avoid wide chop (width < 5x ATR)
    if(snapshot.channelWidthRatio > TREND_CONTINUATION_CHANNEL_WIDTH_MAX)
    {
-      LogDebug("TrendContinuation filtered: ChannelWidth=" + DoubleToString(snapshot.channelWidthRatio, 2) +
-               " > max=" + DoubleToString(TREND_CONTINUATION_CHANNEL_WIDTH_MAX, 2));
+      LogDebug("趋势延续过滤: 通道宽度=" + DoubleToString(snapshot.channelWidthRatio, 2) +
+               " > 最大值=" + DoubleToString(TREND_CONTINUATION_CHANNEL_WIDTH_MAX, 2));
       return false;
    }
 
@@ -65,9 +66,10 @@ bool BuildTrendContinuationSignal(SMarketSnapshot &snapshot, SSignalDecision &si
    double upperBreakout = snapshot.highPrev2 + breakoutBuffer;  // Break above previous bars high
    double lowerBreakout = snapshot.lowPrev2 - breakoutBuffer;   // Break below previous bars low
 
-   // Check for bullish breakout continuation
-   if(snapshot.emaFast > snapshot.emaSlow &&          // Uptrend
-      snapshot.close >= upperBreakout)                // Breakout above resistance
+    // Check for bullish breakout continuation
+    if(snapshot.emaFast > snapshot.emaSlow &&          // M5 Uptrend
+       IsH1Uptrend(snapshot) &&                        // H1 Uptrend filter
+       snapshot.close >= upperBreakout)                // Breakout above resistance
    {
       signal.strategyName = "TrendContinuation";
       signal.orderType = ORDER_TYPE_BUY;
@@ -85,15 +87,16 @@ bool BuildTrendContinuationSignal(SMarketSnapshot &snapshot, SSignalDecision &si
       signal.conditionsMet[1] = "breakout_up";
       signal.conditionsMet[2] = "body_strength_ok";
       
-      LogDetailed("TrendContinuation BUY signal: Entry=" + DoubleToString(signal.entryPrice, g_digits) +
-                   " SL=" + DoubleToString(signal.stopLoss, g_digits) +
-                   " TP=" + DoubleToString(signal.takeProfit, g_digits));
+      LogDetailed("趋势延续做多信号: 入场=" + DoubleToString(signal.entryPrice, g_digits) +
+                   " 止损=" + DoubleToString(signal.stopLoss, g_digits) +
+                   " 止盈=" + DoubleToString(signal.takeProfit, g_digits));
       
       return true;
    }
    
    // Check for bearish breakout continuation
-   if(snapshot.emaFast < snapshot.emaSlow &&          // Downtrend
+   if(snapshot.emaFast < snapshot.emaSlow &&          // M5 Downtrend
+      IsH1Downtrend(snapshot) &&                      // H1 Downtrend filter
       snapshot.close <= lowerBreakout)                // Breakout below support
    {
       signal.strategyName = "TrendContinuation";
@@ -112,9 +115,9 @@ bool BuildTrendContinuationSignal(SMarketSnapshot &snapshot, SSignalDecision &si
       signal.conditionsMet[1] = "breakout_down";
       signal.conditionsMet[2] = "body_strength_ok";
       
-      LogDetailed("TrendContinuation SELL signal: Entry=" + DoubleToString(signal.entryPrice, g_digits) +
-                   " SL=" + DoubleToString(signal.stopLoss, g_digits) +
-                   " TP=" + DoubleToString(signal.takeProfit, g_digits));
+      LogDetailed("趋势延续做空信号: 入场=" + DoubleToString(signal.entryPrice, g_digits) +
+                   " 止损=" + DoubleToString(signal.stopLoss, g_digits) +
+                   " 止盈=" + DoubleToString(signal.takeProfit, g_digits));
       
       return true;
    }

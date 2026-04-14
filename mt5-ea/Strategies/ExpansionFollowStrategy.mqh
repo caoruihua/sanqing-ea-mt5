@@ -6,6 +6,7 @@
 #property strict
 
 #include "../Main/Common.mqh"
+#include "../Core/ContextBuilder.mqh"
 
 //+------------------------------------------------------------------+
 //| Trend/Chop Filter Thresholds                                      |
@@ -26,19 +27,19 @@ bool ExpansionFollowCanTrade(SMarketSnapshot &snapshot)
         snapshot.high20 > 0 &&
         snapshot.low20 > 0))
    {
-      LogDebug("ExpansionFollow cannot trade: basic data check failed. atr14=" + DoubleToString(snapshot.atr14, 4) +
-               " medianBody20=" + DoubleToString(snapshot.medianBody20, 4) +
-               " prev3BodyMax=" + DoubleToString(snapshot.prev3BodyMax, 4) +
-               " volumeMA20=" + DoubleToString(snapshot.volumeMA20, 2) +
-               " high20=" + DoubleToString(snapshot.high20, 4) +
-               " low20=" + DoubleToString(snapshot.low20, 4));
+      LogDebug("扩展跟随策略无法交易: 基础数据检查失败. ATR=" + DoubleToString(snapshot.atr14, 4) +
+               " 中位实体=" + DoubleToString(snapshot.medianBody20, 4) +
+               " 前3最大实体=" + DoubleToString(snapshot.prev3BodyMax, 4) +
+               " 成交量均线=" + DoubleToString(snapshot.volumeMA20, 2) +
+               " 20周期高点=" + DoubleToString(snapshot.high20, 4) +
+               " 20周期低点=" + DoubleToString(snapshot.low20, 4));
       return false;
    }
 
    // ADX filter: must be in trend (ADX > 25)
    if(snapshot.adx14 < EXPANSION_FOLLOW_ADX_THRESHOLD)
    {
-      LogDetailed("ExpansionFollow filtered: ADX=" + DoubleToString(snapshot.adx14, 2) +
+      LogDetailed("扩展跟随过滤: ADX=" + DoubleToString(snapshot.adx14, 2) +
                   " < " + DoubleToString(EXPANSION_FOLLOW_ADX_THRESHOLD, 2));
       return false;
    }
@@ -46,8 +47,8 @@ bool ExpansionFollowCanTrade(SMarketSnapshot &snapshot)
    // Channel width filter: avoid wide chop (width < 5x ATR)
    if(snapshot.channelWidthRatio > EXPANSION_FOLLOW_CHANNEL_WIDTH_MAX)
    {
-      LogDetailed("ExpansionFollow filtered: ChannelWidth=" + DoubleToString(snapshot.channelWidthRatio, 2) +
-                  " > " + DoubleToString(EXPANSION_FOLLOW_CHANNEL_WIDTH_MAX, 2) + " (wide chop)");
+      LogDetailed("扩展跟随过滤: 通道宽度=" + DoubleToString(snapshot.channelWidthRatio, 2) +
+                  " > " + DoubleToString(EXPANSION_FOLLOW_CHANNEL_WIDTH_MAX, 2) + " (宽幅震荡)");
       return false;
    }
 
@@ -95,6 +96,7 @@ bool BuildExpansionFollowSignal(SMarketSnapshot &snapshot, SSignalDecision &sign
    
    // Check for bullish signal
    if(snapshot.close > snapshot.open &&
+      IsH1Uptrend(snapshot) &&                                     // H1 Uptrend filter
       lowerShadow / body <= 0.25 &&
       snapshot.close > snapshot.high20 + EXPANSION_FOLLOW_BREAKOUT_ATR_BUFFER * snapshot.atr14)
    {
@@ -114,15 +116,16 @@ bool BuildExpansionFollowSignal(SMarketSnapshot &snapshot, SSignalDecision &sign
       signal.conditionsMet[1] = "volume_expansion";
       signal.conditionsMet[2] = "breakout_up";
       
-      LogDetailed("ExpansionFollow BUY signal: Entry=" + DoubleToString(signal.entryPrice, g_digits) +
-                   " SL=" + DoubleToString(signal.stopLoss, g_digits) +
-                   " TP=" + DoubleToString(signal.takeProfit, g_digits));
+      LogDetailed("扩展跟随做多信号: 入场=" + DoubleToString(signal.entryPrice, g_digits) +
+                   " 止损=" + DoubleToString(signal.stopLoss, g_digits) +
+                   " 止盈=" + DoubleToString(signal.takeProfit, g_digits));
       
       return true;
    }
    
    // Check for bearish signal
    if(snapshot.close < snapshot.open &&
+      IsH1Downtrend(snapshot) &&                                   // H1 Downtrend filter
       upperShadow / body <= 0.25 &&
       snapshot.close < snapshot.low20 - EXPANSION_FOLLOW_BREAKOUT_ATR_BUFFER * snapshot.atr14)
    {
@@ -142,9 +145,9 @@ bool BuildExpansionFollowSignal(SMarketSnapshot &snapshot, SSignalDecision &sign
       signal.conditionsMet[1] = "volume_expansion";
       signal.conditionsMet[2] = "breakout_down";
       
-      LogDetailed("ExpansionFollow SELL signal: Entry=" + DoubleToString(signal.entryPrice, g_digits) +
-                   " SL=" + DoubleToString(signal.stopLoss, g_digits) +
-                   " TP=" + DoubleToString(signal.takeProfit, g_digits));
+      LogDetailed("扩展跟随做空信号: 入场=" + DoubleToString(signal.entryPrice, g_digits) +
+                   " 止损=" + DoubleToString(signal.stopLoss, g_digits) +
+                   " 止盈=" + DoubleToString(signal.takeProfit, g_digits));
       
       return true;
    }

@@ -35,7 +35,7 @@ void UpdateDailyRisk(SRuntimeState &state)
       state.dailyClosedProfit = 0.0;
       state.tradesToday = 0;
 
-      LogInfo("Day change detected: " + currentDayKey + " - Daily counters reset");
+      LogInfo("检测到日期变化: " + currentDayKey + " - 每日计数器已重置");
    }
 
    // Calculate daily closed profit from history
@@ -55,7 +55,7 @@ void UpdateDailyRisk(SRuntimeState &state)
       if(!state.dailyLocked)
       {
          state.dailyLocked = true;
-         LogInfo("Daily profit lock triggered: " + DoubleToString(state.dailyClosedProfit, 2) +
+         LogInfo("每日盈利锁定触发: " + DoubleToString(state.dailyClosedProfit, 2) +
                  " >= " + DoubleToString(InpDailyProfitStopUsd, 2));
       }
    }

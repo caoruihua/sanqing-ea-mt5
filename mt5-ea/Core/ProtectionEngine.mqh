@@ -87,8 +87,8 @@ SProtectionDecision EvaluateProtection(ENUM_ORDER_TYPE orderType,
       decision.newTP = NormalizePrice(tp);
       decision.stage = PROTECTION_STAGE1;
       
-      LogInfo("Protection STAGE1 activated: SL=" + DoubleToString(decision.newSL, g_digits) +
-              " TP=" + DoubleToString(decision.newTP, g_digits));
+      LogInfo("保护阶段1激活: 止损=" + DoubleToString(decision.newSL, g_digits) +
+              " 止盈=" + DoubleToString(decision.newTP, g_digits));
       
       return decision;
    }
@@ -119,8 +119,8 @@ SProtectionDecision EvaluateProtection(ENUM_ORDER_TYPE orderType,
       decision.newTP = NormalizePrice(tp);
       decision.stage = PROTECTION_STAGE2;
       
-      LogDetailed("Protection STAGE2 trailing: SL=" + DoubleToString(decision.newSL, g_digits) +
-                  " TP=" + DoubleToString(decision.newTP, g_digits));
+      LogDetailed("保护阶段2追踪: 止损=" + DoubleToString(decision.newSL, g_digits) +
+                  " 止盈=" + DoubleToString(decision.newTP, g_digits));
       
       return decision;
    }

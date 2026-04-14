@@ -128,8 +128,8 @@ SExecutionResult SendOrder(STradeIntent &intent, SMarketSnapshot &snapshot)
          result.reason = "SUCCESS";
          result.retryable = false;
          
-         LogInfo("Order filled: " + intent.comment + 
-                 " Ticket=" + IntegerToString(result.ticket) +
+         LogInfo("订单成交: " + intent.comment +
+                 " 订单号=" + IntegerToString(result.ticket) +
                  " Price=" + DoubleToString(result.filledPrice, g_digits) +
                  " Retries=" + IntegerToString(attempt));
          
@@ -154,8 +154,8 @@ SExecutionResult SendOrder(STradeIntent &intent, SMarketSnapshot &snapshot)
             break;
       }
       
-      LogDetailed("Order attempt " + IntegerToString(attempt) + " failed: " + 
-                  result.reason + " Retryable=" + (result.retryable ? "Yes" : "No"));
+      LogDetailed("下单尝试 " + IntegerToString(attempt) + " 失败: " + 
+                  result.reason + " 可重试=" + (result.retryable ? "是" : "否"));
       
       if(!result.retryable)
          break;
@@ -164,7 +164,7 @@ SExecutionResult SendOrder(STradeIntent &intent, SMarketSnapshot &snapshot)
       Sleep(100);
    }
    
-   LogError("Order failed after " + IntegerToString(InpMaxRetries) + " retries: " + result.reason);
+   LogError("下单失败, 重试" + IntegerToString(InpMaxRetries) + "次后: " + result.reason);
    
    return result;
 }
@@ -188,13 +188,13 @@ bool ModifyPosition(int ticket, double newSL, double newTP)
    
    if(sent && result.retcode == TRADE_RETCODE_DONE)
    {
-      LogDetailed("Position modified: Ticket=" + IntegerToString(ticket) +
-                  " SL=" + DoubleToString(newSL, g_digits) +
-                  " TP=" + DoubleToString(newTP, g_digits));
+      LogDetailed("持仓修改: 订单号=" + IntegerToString(ticket) +
+                  " 止损=" + DoubleToString(newSL, g_digits) +
+                  " 止盈=" + DoubleToString(newTP, g_digits));
       return true;
    }
    
-   LogError("Modify position failed: " + IntegerToString(result.retcode));
+   LogError("修改持仓失败: " + IntegerToString(result.retcode));
    return false;
 }
 
@@ -233,11 +233,11 @@ bool ClosePosition(int ticket)
    
    if(sent && result.retcode == TRADE_RETCODE_DONE)
    {
-      LogInfo("Position closed: Ticket=" + IntegerToString(ticket));
+      LogInfo("持仓平仓: 订单号=" + IntegerToString(ticket));
       return true;
    }
    
-   LogError("Close position failed: " + IntegerToString(result.retcode));
+   LogError("平仓失败: " + IntegerToString(result.retcode));
    return false;
 }
 

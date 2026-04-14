@@ -38,16 +38,23 @@
 #define DEFAULT_LOW_VOL_ATR_POINTS_FLOOR      300.0   // 低波动ATR下限（点）
 #define DEFAULT_LOW_VOL_ATR_SPREAD_RATIO_FLOOR 3.0    // 低波动ATR/点差比下限
 
+// Trend Filter Parameters (H1)
+#define DEFAULT_TREND_TIMEFRAME            PERIOD_H1      // 默认趋势判断周期
+#define DEFAULT_EMA_TREND_PERIOD           50             // 默认趋势EMA周期
+#define DEFAULT_ADX_THRESHOLD              25.0           // 默认ADX阈值
+#define DEFAULT_INITIAL_SL_ATR             1.8            // 默认初始止损ATR倍数
+#define DEFAULT_INITIAL_TP_ATR             2.5            // 默认初始止盈ATR倍数
+
 // TrendContinuation Parameters
 #define TREND_CONTINUATION_ATR_MULTIPLIER_BREAKOUT  0.20   // 趋势延续突破ATR倍数
 #define TREND_CONTINUATION_ATR_MULTIPLIER_BODY      0.35   // 趋势延续实体ATR倍数
-#define TREND_CONTINUATION_INITIAL_SL_ATR           1.2    // 趋势延续初始止损ATR倍数
-#define TREND_CONTINUATION_INITIAL_TP_ATR           2.0    // 趋势延续初始止盈ATR倍数
+#define TREND_CONTINUATION_INITIAL_SL_ATR           DEFAULT_INITIAL_SL_ATR    // 趋势延续初始止损ATR倍数
+#define TREND_CONTINUATION_INITIAL_TP_ATR           DEFAULT_INITIAL_TP_ATR    // 趋势延续初始止盈ATR倍数
 
 // Pullback Parameters
 #define PULLBACK_EMA_TOLERANCE_ATR       0.15      // 回调EMA容差ATR倍数
-#define PULLBACK_INITIAL_SL_ATR          1.2       // 回调初始止损ATR倍数
-#define PULLBACK_INITIAL_TP_ATR          2.0       // 回调初始止盈ATR倍数
+#define PULLBACK_INITIAL_SL_ATR          DEFAULT_INITIAL_SL_ATR    // 回调初始止损ATR倍数
+#define PULLBACK_INITIAL_TP_ATR          DEFAULT_INITIAL_TP_ATR    // 回调初始止盈ATR倍数
 
 // ExpansionFollow Parameters
 #define EXPANSION_FOLLOW_BODY_ATR_MIN            4.0    // 扩展跟随最小实体ATR倍数
@@ -154,6 +161,10 @@ struct SMarketSnapshot
    double     priceMove24;            // Price move in 24 bars (positive = up)
    double     high24;                 // High of last 24 bars
    double     low24;                  // Low of last 24 bars
+
+   // H1 Trend filter fields
+   double     emaTrend_H1;            // H1 EMA50 value for trend filter
+   double     close_H1;               // H1 close price
 };
 
 //+------------------------------------------------------------------+
@@ -254,6 +265,11 @@ input double    InpDailyProfitStopUsd = DEFAULT_DAILY_PROFIT_STOP_USD; // Daily 
 input group "=== Volatility Filter ==="
 input double    InpLowVolAtrPointsFloor = DEFAULT_LOW_VOL_ATR_POINTS_FLOOR;     // Low Vol ATR Points Floor
 input double    InpLowVolAtrSpreadRatioFloor = DEFAULT_LOW_VOL_ATR_SPREAD_RATIO_FLOOR; // Low Vol ATR/Spread Ratio Floor
+
+input group "=== Trend Filter ==="
+input int      InpTrendTimeframe = DEFAULT_TREND_TIMEFRAME;    // Trend Timeframe (0=Disabled)
+input int      InpEmaTrendPeriod = DEFAULT_EMA_TREND_PERIOD;   // Trend EMA Period
+input double   InpAdxThreshold = DEFAULT_ADX_THRESHOLD;         // ADX Threshold
 
 input group "=== Logging ==="
 input int      InpLogLevel = DEFAULT_LOG_LEVEL;                // Log Level (0=Off, 1=Minimal, 2=Detailed, 3=Debug)

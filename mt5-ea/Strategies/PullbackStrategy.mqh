@@ -6,13 +6,30 @@
 #property strict
 
 #include "../Main/Common.mqh"
+#include "../Core/ContextBuilder.mqh"
+
+//+------------------------------------------------------------------+
+//| Pullback ADX Threshold                                            |
+//+------------------------------------------------------------------+
+#define PULLBACK_ADX_THRESHOLD       25.0   // ADX > 25 = trend
 
 //+------------------------------------------------------------------+
 //| Check if Strategy Can Trade                                       |
 //+------------------------------------------------------------------+
 bool PullbackCanTrade(SMarketSnapshot &snapshot)
 {
-   return snapshot.atr14 > 0;
+   if(snapshot.atr14 <= 0)
+      return false;
+   
+   // ADX filter: must be in trend (ADX > 25)
+   if(snapshot.adx14 < PULLBACK_ADX_THRESHOLD)
+   {
+      LogDebug("回调过滤: ADX=" + DoubleToString(snapshot.adx14, 2) +
+               " < 阈值=" + DoubleToString(PULLBACK_ADX_THRESHOLD, 2));
+      return false;
+   }
+   
+   return true;
 }
 
 //+------------------------------------------------------------------+
@@ -32,7 +49,8 @@ bool BuildPullbackSignal(SMarketSnapshot &snapshot, SSignalDecision &signal)
    double upperShadow = snapshot.high - MathMax(snapshot.open, snapshot.close);
    
    // Check for bullish pullback
-   if(snapshot.emaFast > snapshot.emaSlow &&                       // Uptrend
+   if(snapshot.emaFast > snapshot.emaSlow &&                       // M5 Uptrend
+      IsH1Uptrend(snapshot) &&                                     // H1 Uptrend filter
       snapshot.low <= snapshot.emaFast + tolerance &&              // Pulled back to EMA
       snapshot.close > snapshot.emaFast &&                         // Reclaimed EMA
       snapshot.close > snapshot.open &&                            // Bullish candle
@@ -54,15 +72,16 @@ bool BuildPullbackSignal(SMarketSnapshot &snapshot, SSignalDecision &signal)
       signal.conditionsMet[1] = "ema_reclaim";
       signal.conditionsMet[2] = "bullish_rejection";
       
-      LogDetailed("Pullback BUY signal: Entry=" + DoubleToString(signal.entryPrice, g_digits) +
-                   " SL=" + DoubleToString(signal.stopLoss, g_digits) +
-                   " TP=" + DoubleToString(signal.takeProfit, g_digits));
+      LogDetailed("回调做多信号: 入场=" + DoubleToString(signal.entryPrice, g_digits) +
+                   " 止损=" + DoubleToString(signal.stopLoss, g_digits) +
+                   " 止盈=" + DoubleToString(signal.takeProfit, g_digits));
       
       return true;
    }
    
    // Check for bearish pullback
-   if(snapshot.emaFast < snapshot.emaSlow &&                       // Downtrend
+   if(snapshot.emaFast < snapshot.emaSlow &&                       // M5 Downtrend
+      IsH1Downtrend(snapshot) &&                                   // H1 Downtrend filter
       snapshot.high >= snapshot.emaFast - tolerance &&             // Pulled back to EMA
       snapshot.close < snapshot.emaFast &&                          // Dropped below EMA
       snapshot.close < snapshot.open &&                            // Bearish candle
@@ -84,9 +103,9 @@ bool BuildPullbackSignal(SMarketSnapshot &snapshot, SSignalDecision &signal)
       signal.conditionsMet[1] = "ema_reject";
       signal.conditionsMet[2] = "bearish_rejection";
       
-      LogDetailed("Pullback SELL signal: Entry=" + DoubleToString(signal.entryPrice, g_digits) +
-                   " SL=" + DoubleToString(signal.stopLoss, g_digits) +
-                   " TP=" + DoubleToString(signal.takeProfit, g_digits));
+      LogDetailed("回调做空信号: 入场=" + DoubleToString(signal.entryPrice, g_digits) +
+                   " 止损=" + DoubleToString(signal.stopLoss, g_digits) +
+                   " 止盈=" + DoubleToString(signal.takeProfit, g_digits));
       
       return true;
    }
