@@ -437,22 +437,7 @@ SStrategySelectionResult SelectStrategy(SMarketSnapshot &snapshot)
       AddCondition(suppressed, "ExpansionFollow");
    }
 
-   // Priority 2: Pullback
-   if(PullbackCanTrade(snapshot))
-   {
-      if(BuildPullbackSignal(snapshot, result.signal))
-      {
-         result.hasSignal = true;
-         LogInfo("Strategy selected: Pullback");
-         return result;
-      }
-   }
-   else
-   {
-      AddCondition(suppressed, "Pullback");
-   }
-
-   // Priority 3: TrendContinuation
+   // Priority 2: TrendContinuation
    if(TrendContinuationCanTrade(snapshot))
    {
       if(BuildTrendContinuationSignal(snapshot, result.signal))
@@ -465,6 +450,21 @@ SStrategySelectionResult SelectStrategy(SMarketSnapshot &snapshot)
    else
    {
       AddCondition(suppressed, "TrendContinuation");
+   }
+
+   // Priority 3: Pullback
+   if(PullbackCanTrade(snapshot))
+   {
+      if(BuildPullbackSignal(snapshot, result.signal))
+      {
+         result.hasSignal = true;
+         LogInfo("Strategy selected: Pullback");
+         return result;
+      }
+   }
+   else
+   {
+      AddCondition(suppressed, "Pullback");
    }
 
    // Priority 4: Reversal
