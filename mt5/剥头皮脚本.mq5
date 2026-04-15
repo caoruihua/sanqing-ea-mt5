@@ -2,6 +2,21 @@
 //|                                              剥头皮脚本.mq5        |
 //|              XAUUSD M5 快速剥头皮EA                               |
 //+------------------------------------------------------------------+
+//| 版本历史：                                                        |
+//| v1.3 (2026-04-15)                                                |
+//|   - 新增持续趋势入场：连续N根K线在EMA同侧且偏离>0.1%时入场        |
+//|   - 解决单边行情踏空问题                                          |
+//|                                                                   |
+//| v1.2 (2026-04-15)                                                |
+//|   - 加强空仓检查：有持仓时严禁开新仓（原逻辑仅检查是否>=配置手数）  |
+//|                                                                   |
+//| v1.1 (2026-04-15)                                                |
+//|   - 修正时区偏移：服务器时间比北京时间晚5小时（原6小时）           |
+//|   - ServerToBeijingHours 默认值从6改为5                          |
+//|                                                                   |
+//| v1.0 (2026-04-14)                                                 |
+//|   - 初始版本：EMA趋势判断+回调入场剥头皮策略                       |
+//+------------------------------------------------------------------+
 //| 策略说明：                                                        |
 //| 1. 使用EMA判断大趋势方向                                          |
 //| 2. 大趋势向上时只做多，向下时只做空                                |
@@ -10,7 +25,7 @@
 //| 5. 0.01手最大，空仓才能下一单                                     |
 //+------------------------------------------------------------------+
 #property copyright   "Scalping EA"
-#property version     "1.0"
+#property version     "1.3"
 #property description "XAUUSD M5 快速剥头皮EA"
 #property strict
 
@@ -38,11 +53,13 @@ input double TrendStrengthRatio  = 0.002;      // 趋势强度比例，价格偏
 input double PullbackRatio       = 0.3;        // 回调比例，0.3=回调到EMA距离的30%以内入场
 input int    PullbackMaxBars     = 10;         // 回调最多等待多少根K线
 input double StrongTrendRatio    = 0.004;      // 强趋势比例，价格偏离EMA超过此比例直接入场，不等回调
+input int    SustainedTrendBars  = 5;          // 持续趋势入场：连续N根K线在EMA同侧
+input double SustainedTrendMinDeviation = 0.001; // 持续趋势入场：最小偏离比例（默认0.1%）
 
 input group "===== 日内风控参数 ====="
-input double DailyProfitTargetUsd = 20.0;      // 日内盈利目标（美元），达到后停止开新仓
-input double DailyLossLimitUsd    = 10.0;      // 日内亏损限额（美元），达到后停止开新仓
-input int    ServerToBeijingHours = 6;         // 服务器时间到北京时间的小时偏移
+input double DailyProfitTargetUsd = 50.0;      // 日内盈利目标（美元），达到后停止开新仓
+input double DailyLossLimitUsd    = 100.0;      // 日内亏损限额（美元），达到后停止开新仓
+input int    ServerToBeijingHours = 5;         // 服务器时间到北京时间的小时偏移（服务器+此值=北京时间）
 
 input group "===== 调试参数 ====="
 input bool   EnableDebugLogs     = true;       // 是否输出调试日志
@@ -60,6 +77,11 @@ int      g_trendEmaHandle        = INVALID_HANDLE;
 int      g_pullbackTrend         = 0;     // 检测到的趋势方向: 1=多, -1=空
 datetime g_pullbackBarTime       = 0;     // 趋势确认的K线时间
 double   g_pullbackMaxDistance   = 0;     // 趋势确认时价格距EMA的最大距离
+
+//--- 持续趋势入场状态
+int      g_sustainedTrendBars    = 0;     // 持续趋势计数：连续在EMA同侧的K线数
+int      g_sustainedTrendDirection = 0;   // 持续趋势方向: 1=多, -1=空
+datetime g_sustainedLastBarTime  = 0;     // 上次计数的K线时间，防止同一根K线重复计数
 
 CTrade   g_trade;
 
@@ -401,6 +423,71 @@ datetime CheckLastStopLoss()
 }
 
 //+------------------------------------------------------------------+
+//| 检查持续趋势入场条件                                              |
+//| 返回: true=可以入场, false=不满足条件                             |
+//+------------------------------------------------------------------+
+bool CheckSustainedTrendEntry(int trend)
+{
+   if(g_trendEmaHandle == INVALID_HANDLE)
+      return false;
+
+   // 获取EMA值
+   double emaValue[];
+   ArraySetAsSeries(emaValue, true);
+   if(CopyBuffer(g_trendEmaHandle, 0, 0, SustainedTrendBars + 1, emaValue) < SustainedTrendBars + 1)
+      return false;
+
+   // 获取最近N根K线的收盘价
+   double closePrices[];
+   ArraySetAsSeries(closePrices, true);
+   if(CopyClose(_Symbol, PERIOD_M5, 0, SustainedTrendBars + 1, closePrices) < SustainedTrendBars + 1)
+      return false;
+
+   // 检查最近N根K线收盘价是否都在EMA同侧
+   bool allOnSameSide = true;
+   for(int i = 1; i <= SustainedTrendBars; i++)
+   {
+      if(trend == 1)  // 多头：收盘价应该 > EMA
+      {
+         if(closePrices[i] <= emaValue[i])
+         {
+            allOnSameSide = false;
+            break;
+         }
+      }
+      else  // 空头：收盘价应该 < EMA
+      {
+         if(closePrices[i] >= emaValue[i])
+         {
+            allOnSameSide = false;
+            break;
+         }
+      }
+   }
+
+   if(!allOnSameSide)
+   {
+      LogDebug("持续趋势：最近" + IntegerToString(SustainedTrendBars) + "根K线不在EMA同侧");
+      return false;
+   }
+
+   // 检查当前偏离是否满足最小要求
+   double currentPrice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double deviationRatio = MathAbs(currentPrice - emaValue[0]) / emaValue[0];
+
+   if(deviationRatio < SustainedTrendMinDeviation)
+   {
+      LogDebug("持续趋势：偏离不足 当前=" + DoubleToString(deviationRatio * 100, 3) + "% < 阈值=" + DoubleToString(SustainedTrendMinDeviation * 100, 3) + "%");
+      return false;
+   }
+
+   LogInfo("★ 持续趋势入场！连续" + IntegerToString(SustainedTrendBars) + "根K线在EMA" + (trend == 1 ? "上方" : "下方") +
+           " 偏离=" + DoubleToString(deviationRatio * 100, 3) + "%");
+
+   return true;
+}
+
+//+------------------------------------------------------------------+
 //| 检查回调入场条件                                                   |
 //| 返回: true=可以入场, false=等待回调                               |
 //+------------------------------------------------------------------+
@@ -607,11 +694,11 @@ void OnTick()
    if(TimeCurrent() - g_lastTradeTime < MinTradeIntervalMs / 1000)
       return;
 
-   // 检查持仓
+   // 检查持仓 - 空仓检查，有持仓严禁开仓
    double openLots = GetOpenLots();
-   if(openLots >= FixedLots)
+   if(openLots > 0)
    {
-      LogDebug("已有持仓 " + DoubleToString(openLots, 2) + " 手");
+      LogDebug("持仓状态下禁止开仓，当前持仓=" + DoubleToString(openLots, 2) + "手");
       return;
    }
 
@@ -630,9 +717,17 @@ void OnTick()
    }
 
    // 检查回调入场条件
-   if(!CheckPullbackEntry(trend))
+   if(CheckPullbackEntry(trend))
    {
-      // 等待回调
+      // 回调入场或强趋势入场满足
+   }
+   else if(CheckSustainedTrendEntry(trend))
+   {
+      // 持续趋势入场满足
+   }
+   else
+   {
+      // 等待回调或持续趋势
       return;
    }
 
