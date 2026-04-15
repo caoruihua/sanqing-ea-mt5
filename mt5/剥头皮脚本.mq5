@@ -3,6 +3,9 @@
 //|              XAUUSD M5 快速剥头皮EA                               |
 //+------------------------------------------------------------------+
 //| 版本历史：                                                        |
+//| v1.4 (2026-04-15)                                                |
+//|   - 新增最大止损距离限制：止损超过MaxStopLossUsd时自动限制        |
+//|                                                                   |
 //| v1.3 (2026-04-15)                                                |
 //|   - 新增持续趋势入场：连续N根K线在EMA同侧且偏离>0.1%时入场        |
 //|   - 解决单边行情踏空问题                                          |
@@ -25,7 +28,7 @@
 //| 5. 0.01手最大，空仓才能下一单                                     |
 //+------------------------------------------------------------------+
 #property copyright   "Scalping EA"
-#property version     "1.3"
+#property version     "1.4"
 #property description "XAUUSD M5 快速剥头皮EA"
 #property strict
 
@@ -42,6 +45,7 @@ input group "===== 剥头皮参数 ====="
 input double TakeProfitUsd       = 5.0;        // 止盈距离（美元）
 input double StopLossBufferUsd   = 3.0;        // 止损缓冲（美元），在最近5根K线极值外侧
 input int    StopLossLookbackBars = 5;         // 止损回看K线数
+input double MaxStopLossUsd      = 15.0;       // 最大止损距离（美元），超过则限制为此值
 input int    MinTradeIntervalMs  = 1000;       // 最小交易间隔（毫秒），防止过快下单
 input int    StopLossCooldownSec = 120;        // 止损后冷却时间（秒），默认2分钟
 
@@ -63,7 +67,7 @@ input int    ServerToBeijingHours = 5;         // 服务器时间到北京时间
 
 input group "===== 调试参数 ====="
 input bool   EnableDebugLogs     = true;       // 是否输出调试日志
-input int    DebugLogIntervalSec = 1;          // 调试日志最小输出间隔（秒）
+input int    DebugLogIntervalSec = 5;          // 调试日志最小输出间隔（秒）
 
 //--- 全局变量
 datetime g_lastTradeTime         = 0;
@@ -296,11 +300,19 @@ bool SendBuyOrder()
    }
 
    double entryPrice = NormalizePrice(tick.ask);
-   
+
    // 止损=最近N根K线最低点-缓冲
    double recentLow = GetRecentLow(StopLossLookbackBars);
    double stopLoss = NormalizePrice(recentLow - StopLossBufferUsd);
    double takeProfit = NormalizePrice(entryPrice + TakeProfitUsd);
+
+   // 止损距离限制：超过最大值则调整
+   double stopLossDistance = entryPrice - stopLoss;
+   if(stopLossDistance > MaxStopLossUsd)
+   {
+      stopLoss = NormalizePrice(entryPrice - MaxStopLossUsd);
+      LogInfo("止损距离过大(" + DoubleToString(stopLossDistance, 2) + ")，限制为" + DoubleToString(MaxStopLossUsd, 2) + "美元");
+   }
 
    // 检查止损止盈距离
    long stopLevel = SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL);
@@ -348,11 +360,19 @@ bool SendSellOrder()
    }
 
    double entryPrice = NormalizePrice(tick.bid);
-   
+
    // 止损=最近N根K线最高点+缓冲
    double recentHigh = GetRecentHigh(StopLossLookbackBars);
    double stopLoss = NormalizePrice(recentHigh + StopLossBufferUsd);
    double takeProfit = NormalizePrice(entryPrice - TakeProfitUsd);
+
+   // 止损距离限制：超过最大值则调整
+   double stopLossDistance = stopLoss - entryPrice;
+   if(stopLossDistance > MaxStopLossUsd)
+   {
+      stopLoss = NormalizePrice(entryPrice + MaxStopLossUsd);
+      LogInfo("止损距离过大(" + DoubleToString(stopLossDistance, 2) + ")，限制为" + DoubleToString(MaxStopLossUsd, 2) + "美元");
+   }
 
    // 检查止损止盈距离
    long stopLevel = SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL);
@@ -619,7 +639,7 @@ int OnInit()
    LogInfo("剥头皮EA 初始化完成");
    LogInfo("品种=" + _Symbol);
    LogInfo("趋势EMA周期=" + IntegerToString(TrendEmaPeriod) + " 时间框架=M5");
-   LogInfo("止盈=" + DoubleToString(TakeProfitUsd, 2) + " 止损缓冲=" + DoubleToString(StopLossBufferUsd, 2) + " 回看" + IntegerToString(StopLossLookbackBars) + "根K线");
+   LogInfo("止盈=" + DoubleToString(TakeProfitUsd, 2) + " 止损缓冲=" + DoubleToString(StopLossBufferUsd, 2) + " 回看" + IntegerToString(StopLossLookbackBars) + "根K线 最大止损=" + DoubleToString(MaxStopLossUsd, 2));
    LogInfo("强趋势阈值=" + DoubleToString(StrongTrendRatio * 100, 3) + "% (偏离超此值直接入场)");
    LogInfo("日内盈利目标=" + DoubleToString(DailyProfitTargetUsd, 2));
    LogInfo("日内亏损限额=" + DoubleToString(DailyLossLimitUsd, 2));
