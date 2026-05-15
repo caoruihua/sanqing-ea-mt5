@@ -13,6 +13,7 @@
 - 只负责“已经决定要下”的那一步如何安全执行。
 """
 
+import importlib
 from typing import Dict, Optional, Set
 
 from src.adapters.broker_base import BrokerAdapter
@@ -55,12 +56,12 @@ class ExecutionEngine:
         if signal.entry_price <= 0:
             return f"Invalid entry_price: {signal.entry_price}"
 
-        # 止损检查
-        if signal.stop_loss <= 0:
+        # 止损检查（允许 sl=0，表示不设止损）
+        if signal.stop_loss < 0:
             return f"Invalid stop_loss: {signal.stop_loss}"
 
-        # 止盈检查
-        if signal.take_profit <= 0:
+        # 止盈检查（允许 take_profit=None，表示由系统计算）
+        if signal.take_profit is not None and signal.take_profit <= 0:
             return f"Invalid take_profit: {signal.take_profit}"
 
         # 手数检查
@@ -69,14 +70,14 @@ class ExecutionEngine:
 
         # 多空方向与止损止盈逻辑检查
         if signal.order_type.value == "BUY":
-            if signal.stop_loss >= signal.entry_price:
+            if signal.stop_loss > 0 and signal.stop_loss >= signal.entry_price:
                 return f"BUY stop_loss ({signal.stop_loss}) must be below entry ({signal.entry_price})"
-            if signal.take_profit <= signal.entry_price:
+            if signal.take_profit is not None and signal.take_profit <= signal.entry_price:
                 return f"BUY take_profit ({signal.take_profit}) must be above entry ({signal.entry_price})"
         else:  # SELL
-            if signal.stop_loss <= signal.entry_price:
+            if signal.stop_loss > 0 and signal.stop_loss <= signal.entry_price:
                 return f"SELL stop_loss ({signal.stop_loss}) must be above entry ({signal.entry_price})"
-            if signal.take_profit >= signal.entry_price:
+            if signal.take_profit is not None and signal.take_profit >= signal.entry_price:
                 return f"SELL take_profit ({signal.take_profit}) must be below entry ({signal.entry_price})"
 
         return None
@@ -101,6 +102,31 @@ class ExecutionEngine:
             return float(tick.ask) if order_type == "BUY" else float(tick.bid)
         except Exception:
             return 0.0
+
+    @staticmethod
+    def _calculate_tp_price(
+        symbol: str,
+        order_type: str,
+        entry_price: float,
+        volume: float,
+        profit_target_usd: float,
+        symbol_info,
+    ) -> float:
+        """Convert a USD profit target into a broker TP price."""
+        tick_value = float(getattr(symbol_info, "trade_tick_value", 0.0))
+        tick_size = float(getattr(symbol_info, "trade_tick_size", 0.0))
+
+        if tick_value <= 0 or tick_size <= 0:
+            raise ValueError(
+                f"Invalid tick info for {symbol}: tick_value={tick_value}, tick_size={tick_size}"
+            )
+
+        ticks_needed = profit_target_usd / (volume * tick_value)
+        price_distance = ticks_needed * tick_size
+
+        if order_type == "BUY":
+            return entry_price + price_distance
+        return entry_price - price_distance
 
     def submit(self, intent: TradeIntent, state: RuntimeState) -> Dict[str, object]:
         snapshot = intent.market_snapshot
@@ -144,7 +170,47 @@ class ExecutionEngine:
                 )
             return {"success": False, "reason": f"VALIDATION_FAILED: {validation_error}"}
 
-        # 4. 记录下单尝试开始
+        # 4. 计算硬止盈价
+        profit_target = intent.signal_decision.profit_target_usd
+        symbol_info = None
+        if profit_target > 0:
+            try:
+                mt5 = importlib.import_module("MetaTrader5")
+                symbol_info = mt5.symbol_info(snapshot.symbol)
+            except Exception:
+                pass
+
+            if symbol_info is None:
+                if self.logger is not None:
+                    self.logger.error(
+                        "order_symbol_info_failed",
+                        策略名称=strategy_name,
+                        品种=snapshot.symbol,
+                    )
+                return {"success": False, "reason": "SYMBOL_INFO_UNAVAILABLE"}
+
+            try:
+                tp_price = self._calculate_tp_price(
+                    symbol=snapshot.symbol,
+                    order_type=order_type,
+                    entry_price=intent.signal_decision.entry_price,
+                    volume=intent.signal_decision.lots,
+                    profit_target_usd=profit_target,
+                    symbol_info=symbol_info,
+                )
+            except ValueError as exc:
+                if self.logger is not None:
+                    self.logger.error(
+                        "order_tp_calculation_failed",
+                        策略名称=strategy_name,
+                        品种=snapshot.symbol,
+                        错误=str(exc),
+                    )
+                return {"success": False, "reason": f"TP_CALCULATION_FAILED: {exc}"}
+        else:
+            tp_price = intent.signal_decision.take_profit
+
+        # 5. 记录下单尝试开始
         if self.logger is not None:
             self.logger.info(
                 "order_submit_started",
@@ -154,7 +220,7 @@ class ExecutionEngine:
                 入场价=intent.signal_decision.entry_price,
                 手数=intent.signal_decision.lots,
                 止损=intent.signal_decision.stop_loss,
-                止盈=intent.signal_decision.take_profit,
+                止盈=tp_price,
                 动作ID=intent.action_id,
                 最大重试次数=self.max_retries,
             )
@@ -206,7 +272,7 @@ class ExecutionEngine:
                 volume=intent.signal_decision.lots,
                 price=entry_price,
                 sl=intent.signal_decision.stop_loss,
-                tp=intent.signal_decision.take_profit,
+                tp=tp_price,
                 slippage=intent.slippage if intent.slippage is not None else DEFAULT_SLIPPAGE,
                 comment=intent.comment or f"{strategy_name}|{intent.action_id[:8]}",
             )
@@ -244,7 +310,7 @@ class ExecutionEngine:
                         原价格=intent.signal_decision.entry_price,
                         手数=intent.signal_decision.lots,
                         止损=intent.signal_decision.stop_loss,
-                        止盈=intent.signal_decision.take_profit,
+                        止盈=tp_price,
                         订单号=ticket,
                         动作ID=intent.action_id,
                         重试次数=attempt,
