@@ -28,7 +28,7 @@ from src.app.poll_ingress import PollIngress
 from src.app.run_config import TriggerConfig, TriggerMode
 from src.app.tick_http_ingress import TickHttpIngress
 from src.app.tick_ingress import TickWakeupPayload
-from src.core.context_builder import ContextBuilder, InsufficientBarsError
+from src.core.context_builder import ContextBuilder
 from src.core.entry_gate import EntryGate
 from src.core.strategy_selector import StrategySelector
 from src.domain.constants import DEFAULT_FIXED_LOTS, DEFAULT_MAGIC_NUMBER, DEFAULT_MAX_RETRIES
@@ -313,7 +313,7 @@ def _process_runtime_cycle(
         wakeup_payload=wakeup_payload,
     )
     _console_status(
-        f"快照构建完成: bar_time={snapshot.last_closed_bar_time}, bid={snapshot.bid}, ask={snapshot.ask}, ema_fast={snapshot.ema_fast:.5f}, ema_slow={snapshot.ema_slow:.5f}, atr14={snapshot.atr14:.5f}"
+        f"快照构建完成: bar_time={snapshot.last_closed_bar_time}, bid={snapshot.bid}, ask={snapshot.ask}, close={snapshot.close}, open={snapshot.open}"
     )
     result = orchestrator.process_snapshot(snapshot)
     _update_strategy_result(
@@ -346,9 +346,9 @@ def _run_processing_cycle(
             logger=logger,
             wakeup_payload=wakeup_payload,
         )
-    except InsufficientBarsError as exc:
-        logger.info("snapshot_skipped", reason="INSUFFICIENT_BARS", detail=str(exc))
-        _console_status(f"跳过本轮: K 线数量不足，原因={exc}")
+    except ValueError as exc:
+        logger.info("snapshot_skipped", reason="INVALID_SNAPSHOT", detail=str(exc))
+        _console_status(f"跳过本轮: 快照构建失败，原因={exc}")
     except Exception as exc:  # noqa: BLE001 - 运行循环应记录日志并继续执行
         logger.info("runtime_error", detail=str(exc))
         _console_status(f"运行时异常: {exc}")
