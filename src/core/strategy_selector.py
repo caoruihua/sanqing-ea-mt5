@@ -18,10 +18,7 @@ from typing import Dict, List, Optional
 from src.domain.constants import DEFAULT_FIXED_LOTS
 from src.domain.models import MarketSnapshot, RuntimeState, SignalDecision
 from src.strategies.base import BaseStrategy
-from src.strategies.expansion_follow import ExpansionFollowStrategy
-from src.strategies.pullback import PullbackStrategy
-from src.strategies.reversal import ReversalStrategy
-from src.strategies.trend_continuation import TrendContinuationStrategy
+from src.strategies.bare_k import BareKStrategy
 from src.utils.logger import StructuredLogger
 
 NO_STRATEGY_SIGNAL = "NO_STRATEGY_SIGNAL"
@@ -47,10 +44,7 @@ class StrategySelector:
         logger: Optional[StructuredLogger] = None,
     ) -> None:
         self.strategies = strategies or [
-            ExpansionFollowStrategy(fixed_lots=fixed_lots),
-            ReversalStrategy(fixed_lots=fixed_lots),
-            PullbackStrategy(fixed_lots=fixed_lots),
-            TrendContinuationStrategy(fixed_lots=fixed_lots),
+            BareKStrategy(fixed_lots=fixed_lots),
         ]
         self.logger = logger
 
@@ -68,10 +62,6 @@ class StrategySelector:
                 开盘价=snapshot.open,
                 最高价=snapshot.high,
                 最低价=snapshot.low,
-                快线EMA=snapshot.ema_fast,
-                慢线EMA=snapshot.ema_slow,
-                ATR14=snapshot.atr14,
-                成交量=snapshot.volume,
             )
 
         for strategy in self.strategies:
