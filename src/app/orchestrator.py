@@ -271,6 +271,9 @@ class Orchestrator:
                         品种=snapshot.symbol,
                     )
 
+            # 记录平仓时间用于冷却期
+            self.state.last_trade_close_time = snapshot.last_closed_bar_time
+
             # 清除历史持仓记录
             self.state.last_position_ticket = None
 
