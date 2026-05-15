@@ -47,7 +47,7 @@ class MarketSnapshot:
     """
     用于决策的市场快照，包含所需全部信息。
 
-    基于需求文档第 6 节“市场快照与指标要求”设计。
+    基于需求文档第 6 节"市场快照与指标要求"设计。
     """
 
     symbol: str
@@ -56,45 +56,20 @@ class MarketSnapshot:
     magic_number: int
     bid: float
     ask: float
-    ema_fast: float  # EMA 快线值
-    ema_slow: float  # EMA 慢线值
-    atr14: float  # ATR(14) 数值
     spread_points: float  # 点差，单位为 points
     last_closed_bar_time: datetime  # 最近已收盘 K 线的时间
 
-    # 供策略计算使用的附加字段
-    close: float  # 最近已收盘 K 线的收盘价
-    open: float  # 最近已收盘 K 线的开盘价
-    high: float  # 最近已收盘 K 线的最高价
-    low: float  # 最近已收盘 K 线的最低价
-    volume: float  # 最近已收盘 K 线的成交量
+    # Current bar
+    close: float
+    open: float
+    high: float
+    low: float
 
-    # 趋势计算所需的历史数据
-    ema_fast_prev3: Optional[float] = None  # 3 根前的 EMA 快线值
-    ema_slow_prev3: Optional[float] = None  # 3 根前的 EMA 慢线值
-    high_prev2: Optional[float] = None  # 2 根前的最高价
-    high_prev3: Optional[float] = None  # 3 根前的最高价
-    low_prev2: Optional[float] = None  # 2 根前的最低价
-    low_prev3: Optional[float] = None  # 3 根前的最低价
-
-    # 反转策略形态识别所需的历史K线数据
-    prev_open: Optional[float] = None  # 前一根K线开盘价
-    prev_close: Optional[float] = None  # 前一根K线收盘价
-    prev_high: Optional[float] = None  # 前一根K线最高价
-    prev_low: Optional[float] = None  # 前一根K线最低价
-    high_3: Optional[float] = None  # 最近3根K线最高价
-    low_3: Optional[float] = None  # 最近3根K线最低价
-
-    # 策略模块扩展指标（任务 4+）
-    median_body_20: Optional[float] = None
-    prev3_body_max: Optional[float] = None
-    volume_ma_20: Optional[float] = None
-    high_20: Optional[float] = None
-    low_20: Optional[float] = None
-
-    # 趋势/震荡过滤指标
-    adx14: Optional[float] = None  # ADX(14) 趋势强度
-    channel_width_ratio: Optional[float] = None  # 20日通道宽度 / ATR14
+    # Candle history (last N+1 bars, oldest first, current last)
+    opens_history: List[float] = field(default_factory=list)
+    closes_history: List[float] = field(default_factory=list)
+    highs_history: List[float] = field(default_factory=list)
+    lows_history: List[float] = field(default_factory=list)
 
     def __post_init__(self):
         """校验市场快照。"""
@@ -104,8 +79,6 @@ class MarketSnapshot:
             raise ValueError(f"Ask price must be positive: {self.ask}")
         if self.ask <= self.bid:
             raise ValueError(f"Ask price ({self.ask}) must be greater than bid ({self.bid})")
-        if self.atr14 < 0:
-            raise ValueError(f"ATR must be non-negative: {self.atr14}")
         if self.spread_points < 0:
             raise ValueError(f"Spread points must be non-negative: {self.spread_points}")
 
@@ -125,6 +98,7 @@ class SignalDecision:
     take_profit: float  # 初始止盈
     atr_value: float  # 计算中使用的 ATR 值
     lots: float  # 手数（来自 FixedLots）
+    profit_target_usd: float = 10.0  # 利润目标（美元）
 
     # 供日志与调试使用的元数据
     confidence_score: float = 1.0  # 取值范围 0.0 到 1.0
@@ -137,8 +111,8 @@ class SignalDecision:
             raise ValueError(f"Entry price must be positive: {self.entry_price}")
         if self.lots <= 0:
             raise ValueError(f"Lot size must be positive: {self.lots}")
-        if self.atr_value <= 0:
-            raise ValueError(f"ATR value must be positive: {self.atr_value}")
+        if self.atr_value < 0:
+            raise ValueError(f"ATR value must be non-negative: {self.atr_value}")
 
 
 @dataclass
@@ -222,6 +196,7 @@ class RuntimeState:
     position_ticket: Optional[int] = None  # MT5 持仓 ticket
     last_position_ticket: Optional[int] = None  # 用于检测持仓消失的上一次持仓 ticket
     position_strategy: Optional[str] = None  # 当前持仓的策略名称
+    last_trade_close_time: Optional[datetime] = None  # 最近一次平仓时间
 
     def __post_init__(self):
         """校验运行时状态。"""
@@ -275,6 +250,7 @@ class RuntimeState:
                 "last_processed_bar_time",
                 "stage1_activated_at",
                 "stage2_activated_at",
+                "last_trade_close_time",
             ]:
                 if value and isinstance(value, str):
                     try:
