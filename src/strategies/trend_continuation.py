@@ -69,10 +69,8 @@ class TrendContinuationStrategy(BaseStrategy):
         if not self.can_trade(snapshot, state):
             return None
 
-        # 放宽突破条件：只需突破前1根K线（而不是前2-3根）
-        high_prev1 = snapshot.high
-        low_prev1 = snapshot.low
-        if high_prev1 is None or low_prev1 is None:
+        # 使用前一 K 线的高低点作为突破基准
+        if snapshot.prev_high is None or snapshot.prev_low is None:
             return None
 
         body = abs(snapshot.close - snapshot.open)
@@ -80,10 +78,10 @@ class TrendContinuationStrategy(BaseStrategy):
             return None
 
         # 突破前1根K线高点/低点 + 小幅缓冲
-        bullish_breakout = snapshot.close >= high_prev1 + (
+        bullish_breakout = snapshot.close >= snapshot.prev_high + (
             TREND_CONTINUATION_ATR_MULTIPLIER_BREAKOUT * snapshot.atr14
         )
-        bearish_breakout = snapshot.close <= low_prev1 - (
+        bearish_breakout = snapshot.close <= snapshot.prev_low - (
             TREND_CONTINUATION_ATR_MULTIPLIER_BREAKOUT * snapshot.atr14
         )
 

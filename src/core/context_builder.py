@@ -4,12 +4,11 @@ No indicators — only raw candle history for naked-K strategies.
 """
 
 from datetime import datetime
-from typing import List, Optional, Tuple
 
 from src.domain.constants import DEFAULT_MAGIC_NUMBER, DEFAULT_SYMBOL, DEFAULT_TIMEFRAME
 from src.domain.models import MarketSnapshot
 
-BarData = Tuple[
+BarData = tuple[
     datetime, float, float, float, float, int, int, int
 ]
 
@@ -27,7 +26,7 @@ class ContextBuilder:
         self.digits = digits
         self.magic_number = magic_number
 
-    def build_snapshot(self, bars: List[BarData], bid: float, ask: float) -> MarketSnapshot:
+    def build_snapshot(self, bars: list[BarData], bid: float, ask: float) -> MarketSnapshot:
         if not bars:
             raise ValueError("No bars provided")
         if bid <= 0 or ask <= 0:
@@ -64,7 +63,7 @@ class ContextBuilder:
 
 
 def create_market_snapshot(
-    bars: List[BarData],
+    bars: list[BarData],
     bid: float,
     ask: float,
     symbol: str = DEFAULT_SYMBOL,

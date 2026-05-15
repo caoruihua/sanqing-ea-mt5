@@ -19,9 +19,9 @@ import configparser
 import importlib
 import sys
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, TextIO
+from typing import Any, TextIO
 
 from src.adapters.mt5_broker import MT5BrokerAdapter
 from src.app.poll_ingress import PollIngress
@@ -34,6 +34,7 @@ from src.core.strategy_selector import StrategySelector
 from src.domain.constants import DEFAULT_FIXED_LOTS, DEFAULT_MAGIC_NUMBER, DEFAULT_MAX_RETRIES
 from src.domain.models import MarketSnapshot, RuntimeState
 
+
 # 控制台文件日志管理器
 class ConsoleFileLogger:
     """按小时保存控制台日志到文件。"""
@@ -41,8 +42,8 @@ class ConsoleFileLogger:
     def __init__(self, log_dir: str = "logs/console") -> None:
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        self._current_file: Optional[TextIO] = None
-        self._current_hour: Optional[str] = None
+        self._current_file: TextIO | None = None
+        self._current_hour: str | None = None
         self._lock = threading.Lock()
 
     def _get_current_hour(self) -> str:
@@ -93,7 +94,7 @@ class ConsoleFileLogger:
 
 
 # 控制台文件日志实例
-_console_file_logger: Optional[ConsoleFileLogger] = None
+_console_file_logger: ConsoleFileLogger | None = None
 
 # 控制台状态（每30秒打印一次最新的tick和策略结果）
 _console_lock = threading.Lock()
@@ -101,9 +102,9 @@ _console_timer: threading.Timer | None = None
 _CONSOLE_FLUSH_INTERVAL = 10.0  # 10秒刷新一次
 
 # 存储最新的状态
-_latest_runtime_status: Optional[str] = None
-_latest_tick_info: Optional[str] = None
-_latest_strategy_result: Optional[str] = None
+_latest_runtime_status: str | None = None
+_latest_tick_info: str | None = None
+_latest_strategy_result: str | None = None
 
 
 def _start_console_timer() -> None:
@@ -210,9 +211,9 @@ def _resolve_timeframe(mt5_module, timeframe_minutes: int) -> int:
     return mapping[timeframe_minutes]
 
 
-def _rate_to_bar(rate: Dict[str, object]) -> tuple:
+def _rate_to_bar(rate: dict[str, object]) -> tuple:
     """把 MT5 K 线字典转换成 ContextBuilder 需要的元组结构。"""
-    rate_any: Dict[str, Any] = dict(rate)
+    rate_any: dict[str, Any] = dict(rate)
     return (
         datetime.fromtimestamp(int(rate_any["time"])),
         float(rate_any["open"]),
@@ -232,7 +233,7 @@ def _build_snapshot_from_mt5(
     symbol: str,
     timeframe_minutes: int,
     bars_count: int,
-    wakeup_payload: Optional[TickWakeupPayload] = None,
+    wakeup_payload: TickWakeupPayload | None = None,
 ) -> MarketSnapshot:
     """从本机 MT5 终端拉取数据并构建市场快照。"""
     timeframe = _resolve_timeframe(mt5_module, timeframe_minutes)
@@ -299,7 +300,7 @@ def _process_runtime_cycle(
     bars_count: int,
     orchestrator: Orchestrator,
     logger: StructuredLogger,
-    wakeup_payload: Optional[TickWakeupPayload] = None,
+    wakeup_payload: TickWakeupPayload | None = None,
 ) -> None:
     """Build one snapshot from MT5 and hand it to the orchestrator."""
     _console_status("正在从 MT5 拉取最新报价与已收盘 K 线...")
@@ -331,7 +332,7 @@ def _run_processing_cycle(
     bars_count: int,
     orchestrator: Orchestrator,
     logger: StructuredLogger,
-    wakeup_payload: Optional[TickWakeupPayload] = None,
+    wakeup_payload: TickWakeupPayload | None = None,
 ) -> None:
     """Run one protected processing cycle, preserving runtime logging behavior."""
     try:
@@ -421,9 +422,9 @@ def _run_tick_http_loop(
 
 
 def _resolve_trigger_config(
-    runtime_cfg: configparser.SectionProxy | Dict[str, str],
+    runtime_cfg: configparser.SectionProxy | dict[str, str],
     symbol: str,
-    trigger_mode_override: Optional[str],
+    trigger_mode_override: str | None,
 ) -> TriggerConfig:
     """Resolve trigger configuration with CLI override over runtime.ini."""
     trigger_mode_str = trigger_mode_override or runtime_cfg.get("trigger_mode", "poll")

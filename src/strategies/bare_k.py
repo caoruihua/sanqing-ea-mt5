@@ -12,7 +12,6 @@
 - 信号无止损止盈，仅设置固定利润目标。
 """
 
-from typing import Optional
 
 from src.domain.constants import DEFAULT_CONSECUTIVE_BARS, DEFAULT_FIXED_LOTS
 from src.domain.models import MarketSnapshot, OrderType, RuntimeState, SignalDecision
@@ -41,7 +40,7 @@ class BareKStrategy(BaseStrategy):
 
     def build_intent(
         self, snapshot: MarketSnapshot, state: RuntimeState
-    ) -> Optional[SignalDecision]:
+    ) -> SignalDecision | None:
         """在条件满足时返回信号决策。"""
         if not self.can_trade(snapshot, state):
             return None
@@ -54,8 +53,8 @@ class BareKStrategy(BaseStrategy):
         last_closes = closes[-n:]
         last_opens = opens[-n:]
 
-        bullish = all(c > o for c, o in zip(last_closes, last_opens))
-        bearish = all(c < o for c, o in zip(last_closes, last_opens))
+        bullish = all(c > o for c, o in zip(last_closes, last_opens, strict=True))
+        bearish = all(c < o for c, o in zip(last_closes, last_opens, strict=True))
 
         if bullish:
             return SignalDecision(

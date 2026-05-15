@@ -94,10 +94,10 @@ class SignalDecision:
     strategy_name: str
     order_type: OrderType
     entry_price: float  # 建议入场价
-    stop_loss: float  # 初始止损
-    take_profit: float  # 初始止盈
-    atr_value: float  # 计算中使用的 ATR 值
-    lots: float  # 手数（来自 FixedLots）
+    stop_loss: float = 0.0  # 初始止损
+    take_profit: Optional[float] = None  # 初始止盈（None 表示由执行引擎计算）
+    atr_value: float = 0.0  # 计算中使用的 ATR 值
+    lots: float = 0.01  # 手数（来自 FixedLots）
     profit_target_usd: float = 10.0  # 利润目标（美元）
 
     # 供日志与调试使用的元数据
