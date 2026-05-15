@@ -4,7 +4,7 @@
 主要职责：
 1. 拦截重复 bar 的重复入场；
 2. 拦截日锁盈、超日交易次数、已有持仓等风险条件；
-3. 执行低波动过滤；
+3. 平仓冷却期检查（1 小时内不重复入场）；
 4. 在所有门控通过后生成 `TradeIntent` 给执行引擎。
 
 说明：
@@ -14,12 +14,11 @@
 """
 
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Optional
 from uuid import uuid4
 
 from src.domain.constants import (
-    DEFAULT_LOW_VOL_ATR_POINTS_FLOOR,
-    DEFAULT_LOW_VOL_ATR_SPREAD_RATIO_FLOOR,
     DEFAULT_MAX_TRADES_PER_DAY,
     RejectionReason,
 )
@@ -41,13 +40,9 @@ class EntryGate:
     def __init__(
         self,
         max_trades_per_day: int = DEFAULT_MAX_TRADES_PER_DAY,
-        low_vol_atr_points_floor: float = DEFAULT_LOW_VOL_ATR_POINTS_FLOOR,
-        low_vol_atr_spread_ratio_floor: float = DEFAULT_LOW_VOL_ATR_SPREAD_RATIO_FLOOR,
         logger: Optional[StructuredLogger] = None,
     ) -> None:
         self.max_trades_per_day = max_trades_per_day
-        self.low_vol_atr_points_floor = low_vol_atr_points_floor
-        self.low_vol_atr_spread_ratio_floor = low_vol_atr_spread_ratio_floor
         self.logger = logger
 
     def evaluate(
@@ -82,10 +77,12 @@ class EntryGate:
             self._log_rejection(strategy_name, reason, snapshot.symbol)
             return EntryGateResult(intent=None, reason_code=reason)
 
-        if self._is_low_volatility(snapshot):
-            reason = RejectionReason.LOW_VOLATILITY
-            self._log_rejection(strategy_name, reason, snapshot.symbol)
-            return EntryGateResult(intent=None, reason_code=reason)
+        if state.last_trade_close_time is not None:
+            elapsed = snapshot.last_closed_bar_time - state.last_trade_close_time
+            if elapsed < timedelta(hours=1):
+                reason = RejectionReason.COOLDOWN_ACTIVE
+                self._log_rejection(strategy_name, reason, snapshot.symbol)
+                return EntryGateResult(intent=None, reason_code=reason)
 
         if not strategy_can_trade:
             reason = RejectionReason.STRATEGY_CANNOT_TRADE
@@ -111,17 +108,6 @@ class EntryGate:
                 原因=reason,
                 品种=symbol,
             )
-
-    def _is_low_volatility(self, snapshot: MarketSnapshot) -> bool:
-        atr_points = snapshot.atr14 * (10**snapshot.digits)
-        if atr_points < self.low_vol_atr_points_floor:
-            return True
-
-        if snapshot.spread_points <= 0:
-            return True
-
-        atr_spread_ratio = atr_points / snapshot.spread_points
-        return atr_spread_ratio < self.low_vol_atr_spread_ratio_floor
 
     @staticmethod
     def _make_action_id(snapshot: MarketSnapshot, signal: SignalDecision) -> str:
