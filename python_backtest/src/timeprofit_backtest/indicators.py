@@ -1,0 +1,18 @@
+from __future__ import annotations
+
+
+def ema(values: list[float], period: int) -> list[float | None]:
+    if period <= 0:
+        raise ValueError("EMA period must be positive.")
+    result: list[float | None] = [None] * len(values)
+    if len(values) < period:
+        return result
+
+    seed = sum(values[:period]) / period
+    result[period - 1] = seed
+    multiplier = 2.0 / (period + 1)
+    previous = seed
+    for index in range(period, len(values)):
+        previous = (values[index] - previous) * multiplier + previous
+        result[index] = previous
+    return result
